@@ -1,0 +1,17 @@
+.vs/
+[Bb]in/
+[Oo]bj/
+
+bin/ 
+obj/ 
+
+**/wwwroot/lib/
+# Visual Studio user-specific files
+*.csproj.user
+*.user
+*.suo
+
+
+*.rsuser
+.env
+.env.*

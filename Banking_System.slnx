@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Banking_System.ApiService/Banking_System.ApiService.csproj" />
+  <Project Path="Banking_System.AppHost/Banking_System.AppHost.csproj" />
+  <Project Path="Banking_System.ServiceDefaults/Banking_System.ServiceDefaults.csproj" />
+  <Project Path="Banking_System.Web/Banking_System.Web.csproj" />
+</Solution>
