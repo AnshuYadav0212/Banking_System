@@ -1,0 +1,25 @@
+@page "/dashboard"
+@attribute [Authorize]
+
+<PageTitle>Dashboard | SecureBank</PageTitle>
+
+<h1>SecureBank Dashboard</h1>
+<p class="text-muted">Choose the dashboard for your signed-in role.</p>
+
+<AuthorizeView Roles="Customer">
+    <Authorized>
+        <a class="btn btn-primary" href="/customer">Go to Customer Dashboard</a>
+    </Authorized>
+</AuthorizeView>
+
+<AuthorizeView Roles="Employee">
+    <Authorized>
+        <a class="btn btn-primary" href="/employee">Go to Employee Dashboard</a>
+    </Authorized>
+</AuthorizeView>
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <a class="btn btn-primary" href="/admin/users">Go to Admin Area</a>
+    </Authorized>
+</AuthorizeView>

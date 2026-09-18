@@ -1,6 +1,24 @@
 ﻿<Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <AuthorizeRouteView
+            RouteData="routeData"
+            DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <LayoutView Layout="typeof(Layout.MainLayout)">
+                    <div class="alert alert-warning">
+                        <h4 class="alert-heading">Access denied</h4>
+                        <p>You are signed in, but your role does not have access to this page.</p>
+                        <a class="btn btn-primary" href="/">Back to Home</a>
+                    </div>
+                </LayoutView>
+            </NotAuthorized>
+        </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <h1>Page not found</h1>
+            <p>The requested page does not exist.</p>
+        </LayoutView>
+    </NotFound>
 </Router>
