@@ -1,0 +1,92 @@
+@page "/register"
+@layout Layout.AuthLayout
+@using Banking_System.Web.Authentication
+
+<PageTitle>Register | SecureBank</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <h1>Create Account</h1>
+        <p class="text-muted mb-4">Create your SecureBank customer account.</p>
+
+        @if (Error == "confirm")
+        {
+            <div class="alert alert-danger" role="alert">
+                Passwords do not match.
+            </div>
+        }
+        else if (Error == "exists")
+        {
+            <div class="alert alert-danger" role="alert">
+                An account with this email already exists.
+            </div>
+        }
+        else if (Error == "invalid")
+        {
+            <div class="alert alert-danger" role="alert">
+                Please enter a valid email and a password of at least 8 characters.
+            </div>
+        }
+        else if (Error == "unavailable")
+        {
+            <div class="alert alert-danger" role="alert">
+                The banking API is unavailable. Start the Aspire AppHost and try again.
+            </div>
+        }
+
+        <form method="post" action="/auth/register" class="mt-2">
+            <AntiforgeryToken />
+
+            <div class="mb-3">
+                <label class="form-label" for="register-email">Email</label>
+                <input class="form-control"
+                       id="register-email"
+                       name="Email"
+                       type="email"
+                       autocomplete="email"
+                       required />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="register-password">Password</label>
+                <input class="form-control"
+                       id="register-password"
+                       name="Password"
+                       type="password"
+                       autocomplete="new-password"
+                       minlength="8"
+                       required />
+                <div class="form-text">Use at least 8 characters.</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="register-confirm-password">
+                    Confirm Password
+                </label>
+                <input class="form-control"
+                       id="register-confirm-password"
+                       name="ConfirmPassword"
+                       type="password"
+                       autocomplete="new-password"
+                       minlength="8"
+                       required />
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">
+                Register
+            </button>
+        </form>
+
+        <hr class="my-4" />
+
+        <p class="mb-0 text-center">
+            Already have an account?
+            <a href="/login" class="fw-semibold text-decoration-none">Sign in</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+}

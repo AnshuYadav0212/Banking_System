@@ -1,7 +1,42 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>SecureBank</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="hero-section">
+    <h1>SecureBank</h1>
+    <p class="lead">
+        A .NET 10 banking management system built with Blazor,
+        ASP.NET Core, Dapper and SQL Server.
+    </p>
 
-Welcome to your new app.
+    <AuthorizeView>
+        <Authorized Context="authContext">
+            <AuthorizeView Roles="Customer">
+                <Authorized Context="customerContext">
+                    <a class="btn btn-primary me-2" href="/customer">Customer Dashboard</a>
+                </Authorized>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="Employee">
+                <Authorized Context="employeeContext">
+                    <a class="btn btn-primary me-2" href="/employee">Employee Dashboard</a>
+                </Authorized>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="Admin">
+                <Authorized Context="adminContext">
+                    <a class="btn btn-primary me-2" href="/admin/users">Admin Area</a>
+                </Authorized>
+            </AuthorizeView>
+
+            <form class="d-inline" method="post" action="/auth/logout">
+                <AntiforgeryToken />
+                <button class="btn btn-outline-secondary" type="submit">Logout</button>
+            </form>
+        </Authorized>
+        <NotAuthorized>
+            <a class="btn btn-primary me-2" href="/login">Login</a>
+            <a class="btn btn-outline-primary" href="/register">Register as Customer</a>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>

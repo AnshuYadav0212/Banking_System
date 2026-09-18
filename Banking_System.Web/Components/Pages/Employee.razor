@@ -1,0 +1,38 @@
+@page "/employee"
+@attribute [Authorize(Roles = "Employee")]
+
+<PageTitle>Employee | SecureBank</PageTitle>
+
+<div class="container py-4">
+    <h1>Employee Dashboard</h1>
+    <p class="text-muted">Welcome to the SecureBank employee portal.</p>
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Customer Accounts</h5>
+                    <p class="card-text">Review and manage customer accounts.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Transactions</h5>
+                    <p class="card-text">Review banking transactions that require employee access.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Operations</h5>
+                    <p class="card-text">Access employee-only banking operations.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

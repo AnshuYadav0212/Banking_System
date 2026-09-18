@@ -1,6 +1,6 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">Banking_System</a>
+        <a class="navbar-brand" href="">SecureBank</a>
     </div>
 </div>
 
@@ -14,16 +14,54 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="Customer">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="customer">
+                        Customer Dashboard
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="Employee">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="employee">
+                        Employee Dashboard
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/users">
+                        Admin Area
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3 mt-2">
+                    <form method="post" action="/auth/logout">
+                        <AntiforgeryToken />
+                        <button class="nav-link btn btn-link text-start w-100" type="submit">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="login">
+                        Login
+                    </NavLink>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
     </nav>
 </div>
