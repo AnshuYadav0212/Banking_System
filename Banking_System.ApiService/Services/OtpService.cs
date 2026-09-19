@@ -65,7 +65,7 @@ public sealed class OtpService
 
     public async Task<OtpCheck> CheckAsync(
         Guid challengeId,
-        string purpose,
+        Guid purposeId,
         string code,
         CancellationToken cancellationToken,
         bool countAttempt = true)
@@ -73,7 +73,7 @@ public sealed class OtpService
         var challenge = await _challenges.GetAsync(challengeId, cancellationToken);
 
         if (challenge is null
-            || challenge.Purpose != purpose
+            || challenge.PurposeId != purposeId
             || challenge.ConsumedAt is not null
             || challenge.ExpiresAt < DateTime.UtcNow)
         {

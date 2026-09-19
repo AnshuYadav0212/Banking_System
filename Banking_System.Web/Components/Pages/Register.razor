@@ -24,6 +24,10 @@
     {
         <div class="alert alert-danger" role="alert">
             @_alert
+            @if (_hint is not null)
+            {
+                <div class="mt-2 small"><strong>Development hint:</strong> @_hint.</div>
+            }
             @if (_showSignInLinks)
             {
                 <div class="mt-2">
@@ -144,6 +148,7 @@
     private ValidationMessageStore _serverMessages = default!;
 
     private string? _alert;
+    private string? _hint;
     private bool _showSignInLinks;
     private bool _unavailable;
 
@@ -162,6 +167,7 @@
     {
         _unavailable = false;
         _alert = null;
+        _hint = null;
         _showSignInLinks = false;
         _serverMessages.Clear();
 
@@ -216,6 +222,8 @@
             case "VerificationFailed":
                 _alert = "We could not verify your details. Check them against your bank records and try again. "
                        + "If it keeps failing, please contact your branch.";
+                // Only present when the API runs in Development.
+                _hint = result.Hint;
                 break;
 
             default:

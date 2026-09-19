@@ -45,13 +45,6 @@ public static partial class ContactRules
             || (da.Length > db.Length ? da.EndsWith(db) : db.EndsWith(da));
     }
 
-    public static string Last10Digits(string phone)
-    {
-        var digits = new string(phone.Where(char.IsDigit).ToArray());
-
-        return digits.Length <= 10 ? digits : digits[^10..];
-    }
-
     public static string NormalizeNationalId(string nationalId) =>
         new string(nationalId.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
 
