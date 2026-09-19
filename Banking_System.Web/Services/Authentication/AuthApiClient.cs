@@ -9,7 +9,8 @@ public sealed record ApiResult<T>(
     bool Success,
     T? Data = default,
     string? Error = null,
-    int AttemptsLeft = 0);
+    int AttemptsLeft = 0,
+    string? Hint = null);
 
 /// <summary>Placeholder for calls that return no body.</summary>
 public sealed record NoData;
@@ -139,8 +140,9 @@ public sealed class AuthApiClient
         return new ApiResult<T>(
             false,
             Error: error?.Error ?? "Invalid",
-            AttemptsLeft: error?.AttemptsLeft ?? 0);
+            AttemptsLeft: error?.AttemptsLeft ?? 0,
+            Hint: error?.Hint);
     }
 
-    private sealed record ErrorBody(string? Error, int? AttemptsLeft);
+    private sealed record ErrorBody(string? Error, int? AttemptsLeft, string? Hint);
 }

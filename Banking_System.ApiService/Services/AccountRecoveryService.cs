@@ -77,8 +77,7 @@ public sealed class AccountRecoveryService
         // The throttle log is written whether or not an account matched, so the
         // limit itself reveals nothing.
         var recent = await _challenges.CountRecentAsync(
-            OtpPurposes.UsernameRecovery,
-            bankCustomerId: null,
+            OtpPurposeIds.UsernameRecovery,
             userId: null,
             email,
             phone,
@@ -96,12 +95,11 @@ public sealed class AccountRecoveryService
             new OtpChallenge
             {
                 ChallengeId = Guid.NewGuid(),
-                Purpose = OtpPurposes.UsernameRecovery,
+                PurposeId = OtpPurposeIds.UsernameRecovery,
                 Email = email,
                 PhoneNumber = phone,
                 OtpHash = "-",
                 CreatedAt = now,
-                LastSentAt = now,
                 ExpiresAt = now,
                 ConsumedAt = now
             },
@@ -137,8 +135,7 @@ public sealed class AccountRecoveryService
         }
 
         var recent = await _challenges.CountRecentAsync(
-            OtpPurposes.PasswordReset,
-            bankCustomerId: null,
+            OtpPurposeIds.PasswordReset,
             user.UserId,
             email: null,
             phone: null,
@@ -158,12 +155,10 @@ public sealed class AccountRecoveryService
             new OtpChallenge
             {
                 ChallengeId = challengeId,
-                Purpose = OtpPurposes.PasswordReset,
+                PurposeId = OtpPurposeIds.PasswordReset,
                 UserId = user.UserId,
-                Email = user.Email,
                 OtpHash = _otp.Hash(challengeId, token),
                 CreatedAt = now,
-                LastSentAt = now,
                 ExpiresAt = now + OtpPolicy.ResetLinkLifetime
             },
             cancellationToken);
@@ -194,7 +189,7 @@ public sealed class AccountRecoveryService
     {
         var check = await _otp.CheckAsync(
             resetId,
-            OtpPurposes.PasswordReset,
+            OtpPurposeIds.PasswordReset,
             token,
             cancellationToken,
             countAttempt: false);
@@ -208,7 +203,7 @@ public sealed class AccountRecoveryService
     {
         var check = await _otp.CheckAsync(
             request.ResetId,
-            OtpPurposes.PasswordReset,
+            OtpPurposeIds.PasswordReset,
             request.Token,
             cancellationToken);
 

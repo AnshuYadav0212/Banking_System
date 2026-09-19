@@ -48,8 +48,7 @@ public sealed class BankCustomerRepository : IBankCustomerRepository
                 c.DateOfBirth,
                 c.NationalId,
                 c.PhoneNumber,
-                c.Email,
-                c.IsActive,
+                c.StatusId,
                 c.FailedVerificationCount,
                 c.LockedUntil
             FROM dbo.BankCustomers c
@@ -59,7 +58,7 @@ public sealed class BankCustomerRepository : IBankCustomerRepository
                     FROM dbo.BankAccounts a
                     WHERE a.CustomerId = c.CustomerId
                       AND a.AccountNumber = @Id
-                      AND a.IsActive = 1);
+                      AND a.StatusId = @Active);
             """;
 
         await using var connection = _connectionFactory.CreateConnection();
@@ -67,7 +66,7 @@ public sealed class BankCustomerRepository : IBankCustomerRepository
         return await connection.QueryFirstOrDefaultAsync<BankCustomer>(
             new CommandDefinition(
                 sql,
-                new { Id = accountOrCif },
+                new { Id = accountOrCif, Active = StatusIds.Active },
                 cancellationToken: cancellationToken));
     }
 
@@ -77,7 +76,7 @@ public sealed class BankCustomerRepository : IBankCustomerRepository
     {
         const string sql = """
             SELECT CustomerId, CifNumber, FirstName, LastName, DateOfBirth,
-                   NationalId, PhoneNumber, Email, IsActive,
+                   NationalId, PhoneNumber, StatusId,
                    FailedVerificationCount, LockedUntil
             FROM dbo.BankCustomers
             WHERE CustomerId = @CustomerId;

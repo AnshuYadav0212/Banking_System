@@ -17,9 +17,10 @@ public sealed class BankCustomer
 
     public string PhoneNumber { get; set; } = string.Empty;
 
-    public string? Email { get; set; }
+    /// <summary>Key into the Statuses table (see <see cref="StatusIds"/>).</summary>
+    public Guid StatusId { get; set; }
 
-    public bool IsActive { get; set; }
+    public bool IsActive => StatusId == StatusIds.Active;
 
     public int FailedVerificationCount { get; set; }
 

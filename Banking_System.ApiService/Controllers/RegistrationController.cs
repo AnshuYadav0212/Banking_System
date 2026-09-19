@@ -11,10 +11,12 @@ namespace Banking_System.ApiService.Controllers;
 public sealed class RegistrationController : ControllerBase
 {
     private readonly RegistrationService _registration;
+    private readonly IHostEnvironment _environment;
 
-    public RegistrationController(RegistrationService registration)
+    public RegistrationController(RegistrationService registration, IHostEnvironment environment)
     {
         _registration = registration;
+        _environment = environment;
     }
 
     [HttpPost]
@@ -22,13 +24,19 @@ public sealed class RegistrationController : ControllerBase
         RegisterRequest request,
         CancellationToken cancellationToken)
     {
-        var status = await _registration.RegisterAsync(request, cancellationToken);
+        var result = await _registration.RegisterAsync(request, cancellationToken);
 
-        return status switch
+        return result.Status switch
         {
             RegisterStatus.Registered => StatusCode(StatusCodes.Status201Created),
             RegisterStatus.VerificationFailed =>
-                UnprocessableEntity(new { error = "VerificationFailed" }),
+                // The customer only ever sees a generic message. In Development the
+                // reason is included too, so a failing registration can be diagnosed.
+                UnprocessableEntity(new
+                {
+                    error = "VerificationFailed",
+                    hint = _environment.IsDevelopment() ? result.Reason : null
+                }),
             RegisterStatus.TooManyAttempts =>
                 StatusCode(StatusCodes.Status429TooManyRequests, new { error = "TooManyAttempts" }),
             RegisterStatus.AlreadyRegistered =>

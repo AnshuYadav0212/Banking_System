@@ -19,6 +19,16 @@ public enum RegisterStatus
 }
 
 /// <summary>
+/// Outcome of a registration attempt. <see cref="Reason"/> explains a failed
+/// identity check for staff and developers; it is never shown to the customer
+/// (the API only returns it when running in Development).
+/// </summary>
+public sealed record RegisterResult(RegisterStatus Status, string? Reason = null)
+{
+    public static implicit operator RegisterResult(RegisterStatus status) => new(status);
+}
+
+/// <summary>
 /// Online-banking registration for people who are already bank customers.
 /// The details are checked against the bank's own records and, if they match
 /// and nothing is already in use, the login is created straight away.
@@ -45,7 +55,7 @@ public sealed class RegistrationService
         _logger = logger;
     }
 
-    public async Task<RegisterStatus> RegisterAsync(
+    public async Task<RegisterResult> RegisterAsync(
         RegisterRequest request,
         CancellationToken cancellationToken)
     {
@@ -63,7 +73,7 @@ public sealed class RegistrationService
                 "Registration not verified: no active bank customer for account/CIF ending {Ending}.",
                 Ending(request.AccountOrCif));
 
-            return RegisterStatus.VerificationFailed;
+            return new RegisterResult(RegisterStatus.VerificationFailed, "no active bank customer for that account or CIF number");
         }
 
         if (customer.LockedUntil is not null && customer.LockedUntil > DateTime.UtcNow)
@@ -85,7 +95,7 @@ public sealed class RegistrationService
                 VerificationLockout,
                 cancellationToken);
 
-            return RegisterStatus.VerificationFailed;
+            return new RegisterResult(RegisterStatus.VerificationFailed, mismatch);
         }
 
         await _bankCustomers.ResetFailedVerificationsAsync(customer.CustomerId, cancellationToken);
@@ -98,7 +108,6 @@ public sealed class RegistrationService
 
         var username = UsernameRules.Normalize(request.Username);
         var email = request.Email.Trim().ToLowerInvariant();
-        var phone = ContactRules.NormalizePhone(request.PhoneNumber);
 
         if (UsernameRules.IsReserved(username)
             || await _users.UsernameExistsAsync(username, cancellationToken))
@@ -111,7 +120,7 @@ public sealed class RegistrationService
             return RegisterStatus.EmailTaken;
         }
 
-        if (await _users.PhoneInUseAsync(phone, cancellationToken))
+        if (await _users.PhoneInUseAsync(customer.PhoneNumber, cancellationToken))
         {
             return RegisterStatus.PhoneTaken;
         }
@@ -120,14 +129,10 @@ public sealed class RegistrationService
         {
             UserId = Guid.NewGuid(),
             Username = username,
-            FirstName = customer.FirstName,
-            LastName = customer.LastName,
             Email = email,
-            PhoneNumber = phone,
-            DateOfBirth = customer.DateOfBirth,
             BankCustomerId = customer.CustomerId,
-            Role = "Customer",
-            IsActive = true,
+            RoleId = RoleIds.Customer,
+            StatusId = StatusIds.Active,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -141,13 +146,11 @@ public sealed class RegistrationService
         {
             // The unique indexes are the final guard against two people
             // registering the same details at the same moment.
-            return ex.Message.Contains("BankCustomerId", StringComparison.OrdinalIgnoreCase)
+            return ex.Message.Contains("UX_Users_BankCustomerId", StringComparison.OrdinalIgnoreCase)
                 ? RegisterStatus.AlreadyRegistered
-                : ex.Message.Contains("Username", StringComparison.OrdinalIgnoreCase)
+                : ex.Message.Contains("UX_Users_Username", StringComparison.OrdinalIgnoreCase)
                     ? RegisterStatus.UsernameTaken
-                    : ex.Message.Contains("Phone", StringComparison.OrdinalIgnoreCase)
-                        ? RegisterStatus.PhoneTaken
-                        : RegisterStatus.EmailTaken;
+                    : RegisterStatus.EmailTaken;
         }
 
         return RegisterStatus.Registered;

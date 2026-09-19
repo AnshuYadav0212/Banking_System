@@ -20,8 +20,7 @@ public interface IOtpChallengeRepository
     Task<bool> ConsumeAsync(Guid challengeId, CancellationToken cancellationToken = default);
 
     Task<int> CountRecentAsync(
-        string purpose,
-        Guid? bankCustomerId,
+        Guid purposeId,
         Guid? userId,
         string? email,
         string? phone,
@@ -45,15 +44,13 @@ public sealed class OtpChallengeRepository : IOtpChallengeRepository
         const string sql = """
             INSERT INTO dbo.OtpChallenges
             (
-                ChallengeId, Purpose, BankCustomerId, UserId, Username, Email,
-                PhoneNumber, PasswordHash, OtpHash, Attempts, ResendCount,
-                CreatedAt, LastSentAt, ExpiresAt, ConsumedAt
+                ChallengeId, PurposeId, UserId, Email, PhoneNumber, OtpHash,
+                Attempts, CreatedAt, ExpiresAt, ConsumedAt
             )
             VALUES
             (
-                @ChallengeId, @Purpose, @BankCustomerId, @UserId, @Username, @Email,
-                @PhoneNumber, @PasswordHash, @OtpHash, @Attempts, @ResendCount,
-                @CreatedAt, @LastSentAt, @ExpiresAt, @ConsumedAt
+                @ChallengeId, @PurposeId, @UserId, @Email, @PhoneNumber, @OtpHash,
+                @Attempts, @CreatedAt, @ExpiresAt, @ConsumedAt
             );
             """;
 
@@ -68,9 +65,8 @@ public sealed class OtpChallengeRepository : IOtpChallengeRepository
         CancellationToken cancellationToken = default)
     {
         const string sql = """
-            SELECT ChallengeId, Purpose, BankCustomerId, UserId, Username, Email,
-                   PhoneNumber, PasswordHash, OtpHash, Attempts, ResendCount,
-                   CreatedAt, LastSentAt, ExpiresAt, ConsumedAt
+            SELECT ChallengeId, PurposeId, UserId, Email, PhoneNumber, OtpHash,
+                   Attempts, CreatedAt, ExpiresAt, ConsumedAt
             FROM dbo.OtpChallenges
             WHERE ChallengeId = @ChallengeId;
             """;
@@ -128,8 +124,7 @@ public sealed class OtpChallengeRepository : IOtpChallengeRepository
     }
 
     public async Task<int> CountRecentAsync(
-        string purpose,
-        Guid? bankCustomerId,
+        Guid purposeId,
         Guid? userId,
         string? email,
         string? phone,
@@ -139,10 +134,9 @@ public sealed class OtpChallengeRepository : IOtpChallengeRepository
         const string sql = """
             SELECT COUNT(*)
             FROM dbo.OtpChallenges
-            WHERE Purpose = @Purpose
+            WHERE PurposeId = @PurposeId
               AND CreatedAt >= @Since
-              AND (   (@BankCustomerId IS NOT NULL AND BankCustomerId = @BankCustomerId)
-                   OR (@UserId IS NOT NULL AND UserId = @UserId)
+              AND (   (@UserId IS NOT NULL AND UserId = @UserId)
                    OR (@Email IS NOT NULL AND Email = @Email)
                    OR (@Phone IS NOT NULL AND PhoneNumber = @Phone));
             """;
@@ -154,9 +148,8 @@ public sealed class OtpChallengeRepository : IOtpChallengeRepository
                 sql,
                 new
                 {
-                    Purpose = purpose,
+                    PurposeId = purposeId,
                     Since = since,
-                    BankCustomerId = bankCustomerId,
                     UserId = userId,
                     Email = email,
                     Phone = phone

@@ -1,4 +1,4 @@
-﻿using Banking_System.ApiService.Data;
+using Banking_System.ApiService.Data;
 using Banking_System.ApiService.Models;
 using Banking_System.ApiService.Validation;
 using Dapper;
@@ -7,27 +7,26 @@ namespace Banking_System.ApiService.Repositories;
 
 public sealed class UserRepository : IUserRepository
 {
+    // The role name comes from the Roles lookup; name and phone come from the bank
+    // customer record. None of them is copied onto Users.
     private const string SelectColumns = """
         SELECT
-            UserId,
-            Username,
-            FirstName,
-            LastName,
-            Email,
-            PhoneNumber,
-            DateOfBirth,
-            BankCustomerId,
-            Gender,
-            Address,
-            City,
-            State,
-            PostalCode,
-            PasswordHash,
-            Role,
-            IsActive,
-            CreatedAt,
-            UpdatedAt
-        FROM dbo.Users
+            u.UserId,
+            u.BankCustomerId,
+            u.Username,
+            u.Email,
+            u.PasswordHash,
+            u.RoleId,
+            r.Name AS Role,
+            u.StatusId,
+            u.CreatedAt,
+            u.UpdatedAt,
+            c.FirstName,
+            c.LastName,
+            c.PhoneNumber
+        FROM dbo.Users u
+        JOIN dbo.Roles r ON r.RoleId = u.RoleId
+        LEFT JOIN dbo.BankCustomers c ON c.CustomerId = u.BankCustomerId
         """;
 
     private readonly ISqlConnectionFactory _connectionFactory;
@@ -45,7 +44,7 @@ public sealed class UserRepository : IUserRepository
 
         return await connection.QuerySingleOrDefaultAsync<User>(
             new CommandDefinition(
-                SelectColumns + " WHERE Email = @Email;",
+                SelectColumns + " WHERE u.Email = @Email;",
                 new { Email = email },
                 cancellationToken: cancellationToken));
     }
@@ -58,7 +57,7 @@ public sealed class UserRepository : IUserRepository
 
         return await connection.QuerySingleOrDefaultAsync<User>(
             new CommandDefinition(
-                SelectColumns + " WHERE Username = @Username;",
+                SelectColumns + " WHERE u.Username = @Username;",
                 new { Username = username },
                 cancellationToken: cancellationToken));
     }
@@ -71,7 +70,7 @@ public sealed class UserRepository : IUserRepository
 
         return await connection.QuerySingleOrDefaultAsync<User>(
             new CommandDefinition(
-                SelectColumns + " WHERE UserId = @UserId;",
+                SelectColumns + " WHERE u.UserId = @UserId;",
                 new { UserId = userId },
                 cancellationToken: cancellationToken));
     }
@@ -80,14 +79,22 @@ public sealed class UserRepository : IUserRepository
         string phone,
         CancellationToken cancellationToken = default)
     {
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+
+        if (digits.Length < 10)
+        {
+            return [];
+        }
+
         await using var connection = _connectionFactory.CreateConnection();
 
-        // PhoneLast10 is an indexed computed column; the full comparison then
-        // confirms the match, so different country codes cannot collide.
+        // The number lives on the bank customer. People type it with or without
+        // the country code, so match exactly or as a suffix (digits only, so
+        // nothing to escape). Used only by account recovery, which is rate limited.
         var candidates = await connection.QueryAsync<User>(
             new CommandDefinition(
-                SelectColumns + " WHERE PhoneLast10 = @Last10 AND IsActive = 1;",
-                new { Last10 = ContactRules.Last10Digits(phone) },
+                SelectColumns + " WHERE u.StatusId = @Active AND (c.PhoneNumber = @Exact OR c.PhoneNumber LIKE @Suffix);",
+                new { Active = StatusIds.Active, Exact = ContactRules.NormalizePhone(phone), Suffix = "%" + digits },
                 cancellationToken: cancellationToken));
 
         return candidates
@@ -95,27 +102,29 @@ public sealed class UserRepository : IUserRepository
             .ToList();
     }
 
+    // True if a different customer who already has a login is recorded with this
+    // phone number. The number is read from the bank customer, so there is no
+    // copy on Users to keep in step.
     public async Task<bool> PhoneInUseAsync(
         string phone,
         CancellationToken cancellationToken = default)
     {
         const string sql = """
-            SELECT PhoneNumber
-            FROM dbo.Users
-            WHERE PhoneLast10 = @Last10;
+            SELECT CASE WHEN EXISTS (
+                SELECT 1
+                FROM dbo.Users u
+                JOIN dbo.BankCustomers c ON c.CustomerId = u.BankCustomerId
+                WHERE c.PhoneNumber = @Phone)
+            THEN 1 ELSE 0 END;
             """;
 
         await using var connection = _connectionFactory.CreateConnection();
 
-        // The indexed last-10-digits column finds the candidates; the full
-        // comparison then confirms it is really the same number.
-        var candidates = await connection.QueryAsync<string>(
+        return await connection.ExecuteScalarAsync<bool>(
             new CommandDefinition(
                 sql,
-                new { Last10 = ContactRules.Last10Digits(phone) },
+                new { Phone = phone },
                 cancellationToken: cancellationToken));
-
-        return candidates.Any(existing => ContactRules.PhonesMatch(existing, phone));
     }
 
     public async Task<bool> BankCustomerHasLoginAsync(
@@ -187,41 +196,23 @@ public sealed class UserRepository : IUserRepository
             INSERT INTO dbo.Users
             (
                 UserId,
-                Username,
-                FirstName,
-                LastName,
-                Email,
-                PhoneNumber,
-                DateOfBirth,
                 BankCustomerId,
-                Gender,
-                Address,
-                City,
-                State,
-                PostalCode,
+                Username,
+                Email,
                 PasswordHash,
-                Role,
-                IsActive,
+                RoleId,
+                StatusId,
                 CreatedAt
             )
             VALUES
             (
                 @UserId,
-                @Username,
-                @FirstName,
-                @LastName,
-                @Email,
-                @PhoneNumber,
-                @DateOfBirth,
                 @BankCustomerId,
-                @Gender,
-                @Address,
-                @City,
-                @State,
-                @PostalCode,
+                @Username,
+                @Email,
                 @PasswordHash,
-                @Role,
-                @IsActive,
+                @RoleId,
+                @StatusId,
                 @CreatedAt
             );
             """;
