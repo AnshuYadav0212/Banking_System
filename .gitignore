@@ -10,6 +10,7 @@ obj/
 *.csproj.user
 *.user
 *.suo
+SampleBankData.Sql
 
 
 *.rsuser

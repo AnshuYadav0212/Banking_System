@@ -1,0 +1,79 @@
+@page "/forgot-username"
+@layout Layout.AuthLayout
+@using Banking_System.Web.Models.Authentication
+@using Banking_System.Web.Services.Authentication
+@inject AuthApiClient AuthApi
+
+<PageTitle>Forgot username | SecureBank</PageTitle>
+
+<div class="auth-card">
+    <h1>Forgot your username?</h1>
+    <p class="text-muted mb-4">
+        Enter the email address or phone number registered for online banking and we will send your
+        username there.
+    </p>
+
+    @if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+
+    @if (_sent)
+    {
+        <div class="alert alert-success" role="alert">
+            If an online-banking account uses that email address or phone number, we have sent the
+            username to it. It can take a few minutes to arrive.
+        </div>
+    }
+    else
+    {
+        <EditForm Model="Input" FormName="forgot-username" OnValidSubmit="SubmitAsync" method="post" novalidate>
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label" for="contact">Email address or phone number</label>
+                <InputText class="form-control" id="contact" @bind-Value="Input!.Contact"
+                           autocomplete="email" autocapitalize="none" spellcheck="false" />
+                <ValidationMessage For="() => Input!.Contact" />
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">Send my username</button>
+        </EditForm>
+    }
+
+    <hr class="my-4" />
+
+    <p class="mb-1 text-center">
+        <a href="/forgot-password" class="text-decoration-none">Forgot your password instead?</a>
+    </p>
+    <p class="mb-0 text-center">
+        <a href="/login" class="text-decoration-none">Back to sign in</a>
+    </p>
+</div>
+
+@code {
+    [SupplyParameterFromForm(FormName = "forgot-username")]
+    private ForgotUsernameInput? Input { get; set; }
+
+    private bool _sent;
+    private bool _unavailable;
+
+    protected override void OnInitialized() => Input ??= new ForgotUsernameInput();
+
+    private async Task SubmitAsync()
+    {
+        _unavailable = false;
+
+        try
+        {
+            await AuthApi.ForgotUsernameAsync(Input!.Contact.Trim());
+            _sent = true;
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+}

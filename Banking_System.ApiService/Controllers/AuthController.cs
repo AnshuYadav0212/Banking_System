@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Banking_System.ApiService.DTOs;
 using Banking_System.ApiService.Services;
+using Banking_System.ApiService.Validation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,30 +18,27 @@ public sealed class AuthController : ControllerBase
         _authService = authService;
     }
 
+    // Registration lives in RegistrationController: online accounts can only be
+    // created after verifying against the bank's customer records.
+
     [AllowAnonymous]
-    [HttpPost("register")]
-    public async Task<IActionResult> Register(
-        RegisterRequest request,
+    [HttpGet("username-available")]
+    public async Task<IActionResult> UsernameAvailable(
+        [FromQuery] string? username,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await _authService.RegisterAsync(
-                request,
-                cancellationToken);
+        Response.Headers.CacheControl = "no-store";
 
-            return StatusCode(StatusCodes.Status201Created);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists", System.StringComparison.OrdinalIgnoreCase))
+        if (!UsernameRules.IsValidFormat(username))
         {
-           return Conflict(new
-            {
-                error = "UserAlreadyExists"
-            });
+            return Ok(new { available = false, reason = "invalid" });
         }
-        catch (Exception)
-        {         return StatusCode(StatusCodes.Status503ServiceUnavailable);
-        }
+
+        var available = await _authService.IsUsernameAvailableAsync(
+            username!,
+            cancellationToken);
+
+        return Ok(new { available, reason = available ? null : "taken" });
     }
 
     [AllowAnonymous]
@@ -61,7 +59,7 @@ public sealed class AuthController : ControllerBase
         {
             return Unauthorized(new
             {
-                message = "Invalid email or password."
+                message = "Invalid username/email or password."
             });
         }
     }
