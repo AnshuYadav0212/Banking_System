@@ -16,7 +16,8 @@ public static class AuthEndpoints
 
         endpoints.MapPost("/auth/login", (Delegate)LoginAsync);
 
-        endpoints.MapPost("/auth/register", (Delegate)RegisterAsync);
+        endpoints.MapGet("/auth/username-available", (Delegate)UsernameAvailableAsync)
+            .RequireRateLimiting("username-check");
 
         endpoints.MapPost("/auth/logout", (Delegate)LogoutAsync);
            
@@ -102,62 +103,30 @@ public static class AuthEndpoints
         };
     }
 
-    private static async Task<IResult> RegisterAsync(
-    [FromForm] RegisterForm request,
-    AuthApiClient authApiClient,
-    HttpContext httpContext,
-    IAntiforgery antiforgery,
-    CancellationToken cancellationToken)
+    // Registration itself is handled by the /register page (an EditForm), so
+    // the user keeps what they typed when the server reports a problem.
+    private static async Task<IResult> UsernameAvailableAsync(
+        string? username,
+        AuthApiClient authApiClient,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
     {
-        try
-        {
-            await antiforgery.ValidateRequestAsync(httpContext);
-        }
-        catch (AntiforgeryValidationException)
-        {
-            return Results.BadRequest("Invalid antiforgery token.");
-        }
-
-        if (!string.Equals(
-                request.Password,
-                request.ConfirmPassword,
-                StringComparison.Ordinal))
-        {
-            return Results.Redirect(
-                "/register?error=confirm");
-        }
-
-        RegisterResult result;
+        httpContext.Response.Headers.CacheControl = "no-store";
 
         try
         {
-            result = await authApiClient.RegisterAsync(
-                new RegisterRequest(
-                    request.Email,
-                    request.Password),
+            var result = await authApiClient.CheckUsernameAsync(
+                username ?? string.Empty,
                 cancellationToken);
+
+            return Results.Ok(result);
         }
         catch (HttpRequestException)
         {
-            return Results.Redirect(
-                "/register?error=unavailable");
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
-
-        return result switch
-        {
-            RegisterResult.Success =>
-                Results.Redirect("/login?registered=true"),
-
-            RegisterResult.AlreadyExists =>
-                Results.Redirect("/register?error=exists"),
-
-            RegisterResult.InvalidRequest =>
-                Results.Redirect("/register?error=invalid"),
-
-            _ =>
-                Results.Redirect("/register?error=invalid")
-        };
     }
+
     private static async Task<IResult> LogoutAsync(
         HttpContext httpContext,
         IAntiforgery antiforgery)
@@ -177,9 +146,4 @@ public static class AuthEndpoints
 
         return Results.Redirect("/login");
     }
-
-    public sealed record RegisterForm(
-        string Email,
-        string Password,
-        string ConfirmPassword);
 }

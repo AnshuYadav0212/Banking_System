@@ -1,92 +1,236 @@
 @page "/register"
 @layout Layout.AuthLayout
-@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Authentication
+@using Banking_System.Web.Services.Authentication
+@inject AuthApiClient AuthApi
+@inject NavigationManager Navigation
 
-<PageTitle>Register | SecureBank</PageTitle>
+<PageTitle>Register for Online Banking | SecureBank</PageTitle>
 
-<div class="auth-page">
-    <div class="auth-card">
-        <h1>Create Account</h1>
-        <p class="text-muted mb-4">Create your SecureBank customer account.</p>
+<div class="auth-card auth-card-wide">
+    <h1>Register for Online Banking</h1>
+    <p class="text-muted mb-4">
+        For existing SecureBank customers. We check your details against our bank records
+        and set up your online login.
+    </p>
 
-        @if (Error == "confirm")
-        {
-            <div class="alert alert-danger" role="alert">
-                Passwords do not match.
+    @if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Start the Aspire AppHost and try again.
+        </div>
+    }
+    else if (_alert is not null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @_alert
+            @if (_showSignInLinks)
+            {
+                <div class="mt-2">
+                    <a href="/login" class="fw-semibold">Sign in</a> or
+                    <a href="/forgot-password" class="fw-semibold">reset your password</a>.
+                </div>
+            }
+        </div>
+    }
+
+    <EditForm EditContext="_editContext"
+              FormName="register"
+              OnValidSubmit="RegisterAsync"
+              OnInvalidSubmit="ClearPasswords"
+              method="post"
+              novalidate>
+        <DataAnnotationsValidator />
+
+        <h2 class="auth-section">Your bank details</h2>
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label" for="accountOrCif">Account number or CIF number</label>
+                <InputText class="form-control" id="accountOrCif" @bind-Value="Input!.AccountOrCif"
+                           autocomplete="off" inputmode="numeric" />
+                <ValidationMessage For="() => Input!.AccountOrCif" />
             </div>
-        }
-        else if (Error == "exists")
-        {
-            <div class="alert alert-danger" role="alert">
-                An account with this email already exists.
+            <div class="col-md-6">
+                <label class="form-label" for="firstName">First name</label>
+                <InputText class="form-control" id="firstName" @bind-Value="Input!.FirstName" autocomplete="given-name" />
+                <ValidationMessage For="() => Input!.FirstName" />
+                <div class="form-text">Exactly as on your bank records.</div>
             </div>
-        }
-        else if (Error == "invalid")
-        {
-            <div class="alert alert-danger" role="alert">
-                Please enter a valid email and a password of at least 8 characters.
+            <div class="col-md-6">
+                <label class="form-label" for="lastName">Last name</label>
+                <InputText class="form-control" id="lastName" @bind-Value="Input!.LastName" autocomplete="family-name" />
+                <ValidationMessage For="() => Input!.LastName" />
             </div>
-        }
-        else if (Error == "unavailable")
-        {
-            <div class="alert alert-danger" role="alert">
-                The banking API is unavailable. Start the Aspire AppHost and try again.
+            <div class="col-md-6">
+                <label class="form-label" for="dob">Date of birth</label>
+                <InputDate TValue="DateOnly?" class="form-control" id="dob" @bind-Value="Input!.DateOfBirth" autocomplete="bday" />
+                <ValidationMessage For="() => Input!.DateOfBirth" />
             </div>
-        }
+            <div class="col-md-6">
+                <label class="form-label" for="nationalId">National ID</label>
+                <InputText class="form-control" id="nationalId" @bind-Value="Input!.NationalId" autocomplete="off" />
+                <ValidationMessage For="() => Input!.NationalId" />
+            </div>
+            <div class="col-12">
+                <div class="form-text mt-0">Enter your date of birth, your national ID, or both.</div>
+            </div>
+        </div>
 
-        <form method="post" action="/auth/register" class="mt-2">
-            <AntiforgeryToken />
-
-            <div class="mb-3">
-                <label class="form-label" for="register-email">Email</label>
-                <input class="form-control"
-                       id="register-email"
-                       name="Email"
-                       type="email"
-                       autocomplete="email"
-                       required />
+        <h2 class="auth-section">Contact details</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label" for="phone">Phone number</label>
+                <InputText class="form-control" id="phone" type="tel" @bind-Value="Input!.PhoneNumber" autocomplete="tel" placeholder="+91 98765 43210" />
+                <ValidationMessage For="() => Input!.PhoneNumber" />
             </div>
+            <div class="col-md-6">
+                <label class="form-label" for="email">Email address</label>
+                <InputText class="form-control" id="email" type="email" @bind-Value="Input!.Email" autocomplete="email" />
+                <ValidationMessage For="() => Input!.Email" />
+            </div>
+        </div>
 
-            <div class="mb-3">
-                <label class="form-label" for="register-password">Password</label>
-                <input class="form-control"
-                       id="register-password"
-                       name="Password"
-                       type="password"
-                       autocomplete="new-password"
-                       minlength="8"
-                       required />
+        <h2 class="auth-section">Your online login</h2>
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label" for="username">Username</label>
+                <div class="input-group">
+                    <span class="input-group-text">@@</span>
+                    <InputText class="form-control"
+                               id="username"
+                               @bind-Value="Input!.Username"
+                               autocomplete="username"
+                               autocapitalize="none"
+                               spellcheck="false"
+                               maxlength="30"
+                               data-username-check="true" />
+                </div>
+                <div id="username-feedback" class="form-text" aria-live="polite">
+                    3-30 characters: letters, numbers and underscores.
+                </div>
+                <ValidationMessage For="() => Input!.Username" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="password">Password</label>
+                <InputText class="form-control" id="password" type="password" @bind-Value="Input!.Password" autocomplete="new-password" />
                 <div class="form-text">Use at least 8 characters.</div>
+                <ValidationMessage For="() => Input!.Password" />
             </div>
-
-            <div class="mb-3">
-                <label class="form-label" for="register-confirm-password">
-                    Confirm Password
-                </label>
-                <input class="form-control"
-                       id="register-confirm-password"
-                       name="ConfirmPassword"
-                       type="password"
-                       autocomplete="new-password"
-                       minlength="8"
-                       required />
+            <div class="col-md-6">
+                <label class="form-label" for="confirmPassword">Confirm password</label>
+                <InputText class="form-control" id="confirmPassword" type="password" @bind-Value="Input!.ConfirmPassword" autocomplete="new-password" />
+                <ValidationMessage For="() => Input!.ConfirmPassword" />
             </div>
+        </div>
 
-            <button class="btn btn-primary w-100" type="submit">
-                Register
-            </button>
-        </form>
+        <button class="btn btn-primary w-100 mt-4" type="submit">
+            Register
+        </button>
+    </EditForm>
 
-        <hr class="my-4" />
+    <hr class="my-4" />
 
-        <p class="mb-0 text-center">
-            Already have an account?
-            <a href="/login" class="fw-semibold text-decoration-none">Sign in</a>
-        </p>
-    </div>
+    <p class="mb-0 text-center">
+        Already registered?
+        <a href="/login" class="fw-semibold text-decoration-none">Sign in</a>
+    </p>
 </div>
 
 @code {
-    [SupplyParameterFromQuery(Name = "error")]
-    private string? Error { get; set; }
+    [SupplyParameterFromForm(FormName = "register")]
+    private RegisterInput? Input { get; set; }
+
+    private EditContext _editContext = default!;
+    private ValidationMessageStore _serverMessages = default!;
+
+    private string? _alert;
+    private bool _showSignInLinks;
+    private bool _unavailable;
+
+    protected override void OnInitialized()
+    {
+        Input ??= new RegisterInput();
+
+        _editContext = new EditContext(Input);
+        _serverMessages = new ValidationMessageStore(_editContext);
+
+        // Clear a server-reported problem as soon as the user edits that field.
+        _editContext.OnFieldChanged += (_, e) => _serverMessages.Clear(e.FieldIdentifier);
+    }
+
+    private async Task RegisterAsync()
+    {
+        _unavailable = false;
+        _alert = null;
+        _showSignInLinks = false;
+        _serverMessages.Clear();
+
+        ApiResult<NoData> result;
+
+        try
+        {
+            result = await AuthApi.RegisterAsync(Input!.ToRequest());
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+            ClearPasswords();
+            return;
+        }
+
+        if (result.Success)
+        {
+            Navigation.NavigateTo("/login?registered=true");
+            return;
+        }
+
+        switch (result.Error)
+        {
+            case "UsernameTaken":
+                _serverMessages.Add(
+                    _editContext.Field(nameof(RegisterInput.Username)),
+                    "That username is already taken.");
+                break;
+
+            case "EmailTaken":
+                _serverMessages.Add(
+                    _editContext.Field(nameof(RegisterInput.Email)),
+                    "An account with this email already exists.");
+                break;
+
+            case "PhoneTaken":
+                _serverMessages.Add(
+                    _editContext.Field(nameof(RegisterInput.PhoneNumber)),
+                    "This phone number is already used by another online-banking account.");
+                break;
+
+            case "AlreadyRegistered":
+                _alert = "This customer already has online banking.";
+                _showSignInLinks = true;
+                break;
+
+            case "TooManyAttempts":
+                _alert = "Too many attempts. For your security, please try again in about 30 minutes.";
+                break;
+
+            case "VerificationFailed":
+                _alert = "We could not verify your details. Check them against your bank records and try again. "
+                       + "If it keeps failing, please contact your branch.";
+                break;
+
+            default:
+                _alert = "Some of the details are not valid. Please review the form and try again.";
+                break;
+        }
+
+        ClearPasswords();
+        _editContext.NotifyValidationStateChanged();
+    }
+
+    // Never echo passwords back into the page after a failed attempt.
+    private void ClearPasswords()
+    {
+        Input!.Password = string.Empty;
+        Input.ConfirmPassword = string.Empty;
+    }
 }

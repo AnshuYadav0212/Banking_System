@@ -1,8 +1,8 @@
-﻿using Banking_System.ApiService.DTOs;
+using Banking_System.ApiService.DTOs;
 using Banking_System.ApiService.Models;
 using Banking_System.ApiService.Repositories;
+using Banking_System.ApiService.Validation;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.SqlClient;
 
 namespace Banking_System.ApiService.Services;
 
@@ -22,65 +22,40 @@ public sealed class AuthService
         _jwtTokenService = jwtTokenService;
     }
 
-    public async Task RegisterAsync(
-        RegisterRequest request,
+    public async Task<bool> IsUsernameAvailableAsync(
+        string username,
         CancellationToken cancellationToken = default)
     {
-        var email = NormalizeEmail(request.Email);
+        var normalized = UsernameRules.Normalize(username);
 
-        var existingUser = await _userRepository.GetByEmailAsync(
-            email,
-            cancellationToken);
-
-        if (existingUser is not null)
+        if (!UsernameRules.IsValidFormat(normalized) || UsernameRules.IsReserved(normalized))
         {
-            throw new InvalidOperationException(
-                "A user with this email already exists.");
+            return false;
         }
 
-        var user = new User
-        {
-            UserId = Guid.NewGuid(),
-            Email = email,
-            Role = "Customer",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        user.PasswordHash = _passwordHasher.HashPassword(
-            user,
-            request.Password);
-
-        try
-        {
-            await _userRepository.CreateAsync(
-                user,
-                cancellationToken);
-        }
-        catch (SqlException ex) when (ex.Number is 2601 or 2627)
-        {
-            // The unique index is the final protection against two
-            // concurrent registration requests using the same email.
-            throw new InvalidOperationException(
-                "A user with this email already exists.",
-                ex);
-        }
+        return !await _userRepository.UsernameExistsAsync(normalized, cancellationToken);
     }
 
     public async Task<LoginResponse> LoginAsync(
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
-        var email = NormalizeEmail(request.Email);
+        var identifier = request.Identifier.Trim();
 
-        var user = await _userRepository.GetByEmailAsync(
-            email,
-            cancellationToken);
+        // Usernames can't contain '@', so the identifier unambiguously
+        // selects which unique index to seek.
+        var user = identifier.Contains('@')
+            ? await _userRepository.GetByEmailAsync(
+                identifier.ToLowerInvariant(),
+                cancellationToken)
+            : await _userRepository.GetByUsernameAsync(
+                UsernameRules.Normalize(identifier),
+                cancellationToken);
 
         if (user is null || !user.IsActive)
         {
             throw new UnauthorizedAccessException(
-                "Invalid email or password.");
+                "Invalid credentials.");
         }
 
         var result = _passwordHasher.VerifyHashedPassword(
@@ -91,7 +66,7 @@ public sealed class AuthService
         if (result == PasswordVerificationResult.Failed)
         {
             throw new UnauthorizedAccessException(
-                "Invalid email or password.");
+                "Invalid credentials.");
         }
 
         var accessToken = _jwtTokenService.GenerateToken(user);
@@ -102,7 +77,4 @@ public sealed class AuthService
             user.Email,
             user.Role);
     }
-
-    private static string NormalizeEmail(string email) =>
-        email.Trim().ToLowerInvariant();
 }

@@ -2,67 +2,78 @@
 @layout Layout.AuthLayout
 <PageTitle>Login | SecureBank</PageTitle>
 
-<div class="auth-page">
-    <div class="auth-card">
-        <h1>Welcome back</h1>
-        <p class="text-muted mb-4">Sign in to your banking account.</p>
+<div class="auth-card">
+    <h1>Welcome back</h1>
+    <p class="text-muted mb-4">Sign in to your banking account.</p>
 
-        @if (IsRegistered)
-        {
-            <div class="alert alert-success" role="alert">
-                Registration successful. You can now log in.
+    @if (IsRegistered)
+    {
+        <div class="alert alert-success" role="alert">
+            Registration successful. You can now sign in.
+        </div>
+    }
+    else if (IsReset)
+    {
+        <div class="alert alert-success" role="alert">
+            Your password has been changed. Sign in with the new password.
+        </div>
+    }
+
+    @if (HasError)
+    {
+        <div class="alert alert-danger" role="alert">
+            Invalid username/email or password.
+        </div>
+    }
+    else if (IsUnavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Start the Aspire AppHost and try again.
+        </div>
+    }
+
+    <form method="post" action="/auth/login" class="mt-2">
+        <AntiforgeryToken />
+
+        <div class="mb-3">
+            <label class="form-label" for="identifier">Username or email</label>
+            <input class="form-control"
+                   id="identifier"
+                   name="Identifier"
+                   type="text"
+                   autocomplete="username"
+                   autocapitalize="none"
+                   spellcheck="false"
+                   required />
+            <div class="form-text">
+                <a href="/forgot-username" class="text-decoration-none">Forgot username?</a>
             </div>
-        }
+        </div>
 
-        @if (HasError)
-        {
-            <div class="alert alert-danger" role="alert">
-                Invalid email or password.
+        <div class="mb-3">
+            <label class="form-label" for="password">Password</label>
+            <input class="form-control"
+                   id="password"
+                   name="Password"
+                   type="password"
+                   autocomplete="current-password"
+                   required />
+            <div class="form-text">
+                <a href="/forgot-password" class="text-decoration-none">Forgot password?</a>
             </div>
-        }
-        else if (IsUnavailable)
-        {
-            <div class="alert alert-danger" role="alert">
-                The banking API is unavailable. Start the Aspire AppHost and try again.
-            </div>
-        }
+        </div>
 
-        <form method="post" action="/auth/login" class="mt-2">
-            <AntiforgeryToken />
+        <button class="btn btn-primary w-100" type="submit">
+            Login
+        </button>
+    </form>
 
-            <div class="mb-3">
-                <label class="form-label" for="email">Email</label>
-                <input class="form-control"
-                       id="email"
-                       name="Email"
-                       type="email"
-                       autocomplete="email"
-                       required />
-            </div>
+    <hr class="my-4" />
 
-            <div class="mb-3">
-                <label class="form-label" for="password">Password</label>
-                <input class="form-control"
-                       id="password"
-                       name="Password"
-                       type="password"
-                       autocomplete="current-password"
-                       minlength="8"
-                       required />
-            </div>
-
-            <button class="btn btn-primary w-100" type="submit">
-                Login
-            </button>
-        </form>
-
-        <hr class="my-4" />
-
-        <p class="mb-0 text-center">
-            Don't have an account?
-            <a href="/register" class="fw-semibold text-decoration-none">Create one</a>
-        </p>
-    </div>
+    <p class="mb-0 text-center">
+        New to online banking?
+        <a href="/register" class="fw-semibold text-decoration-none">Register</a>
+    </p>
 </div>
 
 @code {
@@ -72,11 +83,17 @@
     [SupplyParameterFromQuery(Name = "registered")]
     private string? Registered { get; set; }
 
+    [SupplyParameterFromQuery(Name = "reset")]
+    private string? Reset { get; set; }
+
     private bool HasError =>
         string.Equals(Error, "invalid", StringComparison.OrdinalIgnoreCase);
 
     private bool IsRegistered =>
         string.Equals(Registered, "true", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsReset =>
+        string.Equals(Reset, "true", StringComparison.OrdinalIgnoreCase);
 
     private bool IsUnavailable =>
         string.Equals(Error, "unavailable", StringComparison.OrdinalIgnoreCase);
