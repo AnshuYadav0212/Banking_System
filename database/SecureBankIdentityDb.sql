@@ -15,13 +15,19 @@
 
       Bank data (mirror of core banking)
         * BankCustomers - who the customer is: name, date of birth, national ID, phone.
-        * BankAccounts  - the accounts a customer owns.
+        * BankAccounts  - the accounts a customer owns, each with its available balance.
 
       Online banking
         * Users         - the login only: username, email, password, role, status.
                           It points at its customer through BankCustomerId; name,
                           date of birth and phone are read from BankCustomers.
         * OtpChallenges - short-lived tokens (password reset, throttling log).
+
+    Primary keys: every table uses a GUID (UNIQUEIDENTIFIER) as its primary key,
+    never a serial number and never a business number. Business numbers (CIF,
+    account number, username, email) are ordinary columns with their own UNIQUE
+    constraint, so they can be validated, displayed and changed without touching
+    any key or foreign key, and keys cannot be guessed by counting.
 
     The lookup GUIDs below are fixed on purpose: the application refers to them
     by value (see Models/LookupIds.cs), so they must not be changed.
@@ -144,16 +150,30 @@ BEGIN
 END;
 GO
 
+/* ------------------------------------------------------------------
+   Accounts. The key is AccountId (a GUID); AccountNumber is the number the
+   customer sees: digits only, 6-20 long, unique. AvailableBalance is per
+   account (two decimals), as reported by the bank; it defaults to 0.
+------------------------------------------------------------------- */
 IF OBJECT_ID(N'dbo.BankAccounts', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.BankAccounts
     (
+        AccountId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_BankAccounts PRIMARY KEY
+            CONSTRAINT DF_BankAccounts_AccountId DEFAULT (NEWID()),
+
         AccountNumber NVARCHAR(20) NOT NULL
-            CONSTRAINT PK_BankAccounts PRIMARY KEY,
+            CONSTRAINT UQ_BankAccounts_AccountNumber UNIQUE
+            CONSTRAINT CK_BankAccounts_AccountNumber
+                CHECK (LEN(AccountNumber) BETWEEN 6 AND 20 AND AccountNumber NOT LIKE '%[^0-9]%'),
 
         CustomerId UNIQUEIDENTIFIER NOT NULL
             CONSTRAINT FK_BankAccounts_Customer
             REFERENCES dbo.BankCustomers (CustomerId),
+
+        AvailableBalance DECIMAL(18, 2) NOT NULL
+            CONSTRAINT DF_BankAccounts_Balance DEFAULT (0),
 
         StatusId UNIQUEIDENTIFIER NOT NULL
             CONSTRAINT DF_BankAccounts_Status DEFAULT ('20000000-0000-0000-0000-000000000001')
@@ -229,12 +249,25 @@ BEGIN
 END;
 GO
 
+/* An older version keyed LoginHistory by a serial number; rebuild it with a GUID key.
+   Nothing writes to it yet. If it ever holds rows they must be migrated by hand. */
+IF OBJECT_ID(N'dbo.LoginHistory', N'U') IS NOT NULL
+   AND COLUMNPROPERTY(OBJECT_ID(N'dbo.LoginHistory'), N'LoginHistoryId', 'IsIdentity') = 1
+BEGIN
+    IF EXISTS (SELECT 1 FROM dbo.LoginHistory)
+        RAISERROR (N'dbo.LoginHistory has rows and a serial key: migrate them to a GUID key first.', 16, 1);
+    ELSE
+        DROP TABLE dbo.LoginHistory;
+END;
+GO
+
 IF OBJECT_ID(N'dbo.LoginHistory', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.LoginHistory
     (
-        LoginHistoryId BIGINT IDENTITY(1, 1) NOT NULL
-            CONSTRAINT PK_LoginHistory PRIMARY KEY,
+        LoginHistoryId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_LoginHistory PRIMARY KEY
+            CONSTRAINT DF_LoginHistory_Id DEFAULT (NEWID()),
 
         UserId UNIQUEIDENTIFIER NULL,
 
@@ -324,6 +357,55 @@ IF COL_LENGTH(N'dbo.Users', N'Address') IS NOT NULL ALTER TABLE dbo.Users DROP C
 IF COL_LENGTH(N'dbo.Users', N'City') IS NOT NULL ALTER TABLE dbo.Users DROP COLUMN City;
 IF COL_LENGTH(N'dbo.Users', N'State') IS NOT NULL ALTER TABLE dbo.Users DROP COLUMN State;
 IF COL_LENGTH(N'dbo.Users', N'PostalCode') IS NOT NULL ALTER TABLE dbo.Users DROP COLUMN PostalCode;
+GO
+
+/* ---- BankAccounts: a GUID primary key; the account number becomes a plain unique column. */
+IF COL_LENGTH(N'dbo.BankAccounts', N'AccountId') IS NULL
+    ALTER TABLE dbo.BankAccounts ADD AccountId UNIQUEIDENTIFIER NOT NULL
+        CONSTRAINT DF_BankAccounts_AccountId DEFAULT (NEWID());
+GO
+
+IF EXISTS (SELECT 1
+           FROM sys.key_constraints kc
+           JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id
+           JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+           WHERE kc.parent_object_id = OBJECT_ID(N'dbo.BankAccounts') AND kc.type = 'PK' AND c.name = N'AccountNumber')
+    ALTER TABLE dbo.BankAccounts DROP CONSTRAINT PK_BankAccounts;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'PK_BankAccounts' AND parent_object_id = OBJECT_ID(N'dbo.BankAccounts'))
+    ALTER TABLE dbo.BankAccounts ADD CONSTRAINT PK_BankAccounts PRIMARY KEY (AccountId);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_BankAccounts_AccountNumber' AND parent_object_id = OBJECT_ID(N'dbo.BankAccounts'))
+    ALTER TABLE dbo.BankAccounts ADD CONSTRAINT UQ_BankAccounts_AccountNumber UNIQUE (AccountNumber);
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_BankAccounts_AccountNumber')
+    ALTER TABLE dbo.BankAccounts ADD CONSTRAINT CK_BankAccounts_AccountNumber
+        CHECK (LEN(AccountNumber) BETWEEN 6 AND 20 AND AccountNumber NOT LIKE '%[^0-9]%');
+GO
+
+/* ---- Available balance belongs to the account, not the customer. */
+IF COL_LENGTH(N'dbo.BankAccounts', N'AvailableBalance') IS NULL
+    ALTER TABLE dbo.BankAccounts ADD AvailableBalance DECIMAL(18, 2) NOT NULL
+        CONSTRAINT DF_BankAccounts_Balance DEFAULT (0);
+GO
+
+/* A balance that was held on the customer moves to the customer's first account
+   (lowest account number), so nothing is lost; adjust it afterwards if needed. */
+IF COL_LENGTH(N'dbo.BankCustomers', N'AvailableBalance') IS NOT NULL
+    EXEC (N'UPDATE a SET AvailableBalance = c.AvailableBalance
+            FROM dbo.BankAccounts a
+            JOIN dbo.BankCustomers c ON c.CustomerId = a.CustomerId
+            WHERE c.AvailableBalance <> 0
+              AND a.AvailableBalance = 0
+              AND a.AccountNumber = (SELECT MIN(a2.AccountNumber) FROM dbo.BankAccounts a2 WHERE a2.CustomerId = c.CustomerId)');
+GO
+
+IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_BankCustomers_Balance')
+    ALTER TABLE dbo.BankCustomers DROP CONSTRAINT DF_BankCustomers_Balance;
+GO
+
+IF COL_LENGTH(N'dbo.BankCustomers', N'AvailableBalance') IS NOT NULL ALTER TABLE dbo.BankCustomers DROP COLUMN AvailableBalance;
 GO
 
 /* ---- BankCustomers: the email is chosen at registration and lives on the login. */
