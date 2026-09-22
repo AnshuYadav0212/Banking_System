@@ -8,6 +8,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Banking_System.Web.Authentication;
 
+public static class BankingTokens
+{
+    /// <summary>Name under which the API access token is kept in the sign-in cookie.</summary>
+    public const string AccessToken = "access_token";
+}
+
 public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(
@@ -83,16 +89,29 @@ public static class AuthEndpoints
 
         var principal = new ClaimsPrincipal(identity);
 
+        var properties = new AuthenticationProperties
+        {
+            IsPersistent = true,
+            ExpiresUtc =
+                DateTimeOffset.UtcNow.AddHours(1),
+            AllowRefresh = true
+        };
+
+        // Keep the API's access token with the sign-in, so pages that act on the
+        // customer's behalf (such as sending money) can call the API as them.
+        properties.StoreTokens(
+        [
+            new AuthenticationToken
+            {
+                Name = BankingTokens.AccessToken,
+                Value = result.AccessToken
+            }
+        ]);
+
         await httpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             principal,
-            new AuthenticationProperties
-            {
-                IsPersistent = true,
-                ExpiresUtc =
-                    DateTimeOffset.UtcNow.AddHours(1),
-                AllowRefresh = true
-            });
+            properties);
 
         return result.Role switch
         {

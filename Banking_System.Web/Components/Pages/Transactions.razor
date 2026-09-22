@@ -1,0 +1,228 @@
+@page "/transactions"
+@attribute [Authorize(Roles = "Customer")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Banking
+@using Banking_System.Web.Services.Banking
+@inject BankingApiClient Banking
+
+<PageTitle>Transactions | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page">
+    <h1>Transactions</h1>
+    <p class="text-muted">Everything sent or received across your accounts.</p>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a> to see your transactions.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else
+    {
+        <form method="get" class="row g-2 align-items-center mb-3 tx-filters">
+            <div class="col-12 col-md-6">
+                <input class="form-control" type="search" name="q" value="@Q"
+                       placeholder="Search by account number or name..." autocomplete="off" />
+            </div>
+            <div class="col-12 col-md-auto">
+                <div class="btn-group" role="group" aria-label="Filter by direction">
+                    <input type="radio" class="btn-check" name="dir" id="dir-all" value="" autocomplete="off"
+                           checked="@(!IsSent && !IsReceived)" onclick="this.form.submit()" />
+                    <label class="btn btn-outline-secondary btn-sm" for="dir-all">All</label>
+
+                    <input type="radio" class="btn-check" name="dir" id="dir-sent" value="sent" autocomplete="off"
+                           checked="@IsSent" onclick="this.form.submit()" />
+                    <label class="btn btn-outline-secondary btn-sm" for="dir-sent">Sent</label>
+
+                    <input type="radio" class="btn-check" name="dir" id="dir-received" value="received" autocomplete="off"
+                           checked="@IsReceived" onclick="this.form.submit()" />
+                    <label class="btn btn-outline-secondary btn-sm" for="dir-received">Received</label>
+                </div>
+            </div>
+            <div class="col-12 col-md-auto">
+                <button class="btn btn-primary btn-sm" type="submit">Search</button>
+                @if (!string.IsNullOrWhiteSpace(Q) || IsSent || IsReceived)
+                {
+                    <a href="/transactions" class="btn btn-link btn-sm">Clear</a>
+                }
+            </div>
+        </form>
+
+        @if (_history.Count == 0)
+        {
+            <p class="text-muted">No transactions yet. Your completed transfers will appear here.</p>
+        }
+        else if (FilteredList.Count == 0)
+        {
+            <p class="text-muted">No transactions match your search.</p>
+        }
+        else
+        {
+            @foreach (var group in FilteredList.GroupBy(h => h.CreatedAt.Date).OrderByDescending(g => g.Key))
+            {
+                <div class="tx-day-label">@group.Key.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)</div>
+                <div class="tx-list mb-3">
+                    @foreach (var item in group)
+                    {
+                        <details class="tx-row">
+                            <summary>
+                                <span class="tx-icon @IconClass(item.Direction)">@Arrow(item.Direction)</span>
+                                <span class="tx-main">
+                                    <span class="tx-title">@Title(item)</span>
+                                    <span class="tx-sub">@item.CounterpartyAccountNumber &middot; @BadgeText(item.Direction)</span>
+                                </span>
+                                <span class="tx-amount @IconClass(item.Direction)">@Signed(item)</span>
+                            </summary>
+                            <div class="tx-detail">
+                                <dl class="row mb-0 small">
+                                    <dt class="col-4 text-muted fw-normal">Status</dt>
+                                    <dd class="col-8 mb-1"><span class="badge text-bg-success">Completed</span></dd>
+
+                                    <dt class="col-4 text-muted fw-normal">Date</dt>
+                                    <dd class="col-8 mb-1">@Time(item.CreatedAt)</dd>
+
+                                    <dt class="col-4 text-muted fw-normal">Account</dt>
+                                    <dd class="col-8 mb-1">@item.CounterpartyAccountNumber</dd>
+
+                                    @if (!string.IsNullOrWhiteSpace(item.Comment))
+                                    {
+                                        <dt class="col-4 text-muted fw-normal">Note</dt>
+                                        <dd class="col-8 mb-1 text-break">@item.Comment</dd>
+                                    }
+
+                                    <dt class="col-4 text-muted fw-normal">Reference</dt>
+                                    <dd class="col-8 mb-0"><code>@Ref(item.TransactionId)</code></dd>
+                                </dl>
+                            </div>
+                        </details>
+                    }
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    private const int HistoryTake = 300;
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "q")]
+    private string? Q { get; set; }
+
+    [SupplyParameterFromQuery(Name = "dir")]
+    private string? Dir { get; set; }
+
+    private List<TransactionSummary> _history = [];
+    private string? _token;
+    private bool _sessionExpired;
+    private bool _unavailable;
+
+    private bool IsSent => string.Equals(Dir, "sent", StringComparison.OrdinalIgnoreCase);
+    private bool IsReceived => string.Equals(Dir, "received", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _token = HttpContext is null
+            ? null
+            : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(_token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            var history = await Banking.GetHistoryAsync(_token, take: HistoryTake);
+
+            if (history.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            _history = history.Data ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private List<TransactionSummary> FilteredList => Filtered().ToList();
+
+    private IEnumerable<TransactionSummary> Filtered()
+    {
+        var query = _history.AsEnumerable();
+
+        if (IsSent)
+        {
+            query = query.Where(h => h.Direction == "Sent");
+        }
+        else if (IsReceived)
+        {
+            query = query.Where(h => h.Direction == "Received");
+        }
+
+        var term = Q?.Trim();
+
+        if (!string.IsNullOrEmpty(term))
+        {
+            query = query.Where(h =>
+                h.CounterpartyAccountNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || h.CounterpartyName.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return query;
+    }
+
+    private static string Ref(Guid transactionId) =>
+        "SB-" + transactionId.ToString("N")[..8].ToUpperInvariant();
+
+    private static string Time(DateTime utc) =>
+        utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+
+    private static string Money(decimal value) =>
+        "₹" + value.ToString("N2", CultureInfo.InvariantCulture);
+
+    private static string Title(TransactionSummary item) => item.Direction switch
+    {
+        "Sent" => $"Sent to {item.CounterpartyName}",
+        "Received" => $"Received from {item.CounterpartyName}",
+        _ => "Transfer between your own accounts"
+    };
+
+    private static string Arrow(string direction) => direction switch
+    {
+        "Sent" => "↑",
+        "Received" => "↓",
+        _ => "⇄"
+    };
+
+    private static string BadgeText(string direction) => "Completed";
+
+    private static string Signed(TransactionSummary item) => item.Direction switch
+    {
+        "Sent" => "-" + Money(item.Amount),
+        "Received" => "+" + Money(item.Amount),
+        _ => Money(item.Amount)
+    };
+
+    private static string IconClass(string direction) => direction switch
+    {
+        "Sent" => "tx-out",
+        "Received" => "tx-in",
+        _ => "tx-own"
+    };
+}
