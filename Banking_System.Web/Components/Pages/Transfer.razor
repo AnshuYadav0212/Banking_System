@@ -1,0 +1,398 @@
+@page "/transfer"
+@attribute [Authorize(Roles = "Customer")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Banking
+@using Banking_System.Web.Services.Authentication
+@using Banking_System.Web.Services.Banking
+@inject BankingApiClient Banking
+
+<PageTitle>Send money | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page">
+    <h1>Send money</h1>
+    <p class="text-muted">
+        Send money from one of your accounts to any SecureBank account whose owner uses online banking.
+    </p>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a> to send money.
+        </div>
+    }
+    else
+    {
+        @if (_unavailable)
+        {
+            <div class="alert alert-danger" role="alert">
+                The banking API is unavailable. Try again in a moment.
+            </div>
+        }
+
+        @if (_success is not null)
+        {
+            <div class="alert alert-success success-panel" role="alert">
+                <div class="success-icon">&#10003;</div>
+                <div>
+                    <div class="fs-5"><strong>@Money(_success.Amount)</strong> sent to @_success.RecipientName</div>
+                    <div class="small mt-1">
+                        Reference <code>@Ref(_success.TransactionId)</code> &middot;
+                        @Time(_success.CreatedAt) &middot;
+                        new balance of @_success.FromAccountNumber: @Money(_success.NewBalance)
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_alert is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_alert</div>
+        }
+
+        @if (_accounts.Count == 0 && !_unavailable)
+        {
+            <div class="alert alert-info" role="alert">
+                You have no accounts available for online transfers.
+            </div>
+        }
+        else if (_accounts.Count > 0)
+        {
+            @* Both forms stay in the page at all times (just hidden with CSS) rather
+               than being added/removed with @@if. Blazor's enhanced-navigation form
+               handling looks up a submitted form by name in the current page, and a
+               form that only starts existing after another form's post is not
+               reliably found, which throws "no form on the page currently has that
+               name". *@
+            <div class="card mb-4" hidden="@(_review is not null)">
+                <div class="card-body">
+                    <EditForm EditContext="_detailsContext" FormName="transfer-details" OnValidSubmit="ContinueAsync" method="post" novalidate>
+                        <DataAnnotationsValidator />
+                        <input type="hidden" name="DetailsInput.RequestId" value="@DetailsInput!.RequestId" />
+
+                        <label class="form-label">From</label>
+                        <div class="account-options mb-1">
+                            @foreach (var account in _accounts)
+                            {
+                                <label class="account-option @(DetailsInput!.FromAccountId == account.AccountId ? "selected" : "") @(account.IsActive ? "" : "disabled")">
+                                    <input type="radio" name="DetailsInput.FromAccountId" value="@account.AccountId"
+                                           checked="@(DetailsInput.FromAccountId == account.AccountId)"
+                                           disabled="@(!account.IsActive)" />
+                                    <span class="account-card">
+                                        <span class="account-card-number">@account.AccountNumber</span>
+                                        <span class="account-card-balance">Available balance @Money(account.AvailableBalance)</span>
+                                        @if (!account.IsActive)
+                                        {
+                                            <span class="account-card-flag">Inactive</span>
+                                        }
+                                    </span>
+                                </label>
+                            }
+                        </div>
+                        <ValidationMessage For="() => DetailsInput!.FromAccountId" />
+
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6">
+                                <label class="form-label" for="toAccount">Recipient account number</label>
+                                <InputText class="form-control" id="toAccount" @bind-Value="DetailsInput!.ToAccountNumber"
+                                           inputmode="numeric" autocomplete="off" />
+                                <ValidationMessage For="() => DetailsInput!.ToAccountNumber" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="amount">Transfer amount</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">&#8377;</span>
+                                    <InputNumber TValue="decimal?" class="form-control" id="amount" @bind-Value="DetailsInput!.Amount"
+                                                 step="0.01" min="0.01" inputmode="decimal" />
+                                </div>
+                                <ValidationMessage For="() => DetailsInput!.Amount" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label" for="comment">Payment note <span class="text-muted">(optional)</span></label>
+                                <InputTextArea class="form-control" id="comment" @bind-Value="DetailsInput!.Comment"
+                                               rows="2" maxlength="200" />
+                                <ValidationMessage For="() => DetailsInput!.Comment" />
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary mt-4" type="submit">Continue</button>
+                    </EditForm>
+                </div>
+            </div>
+
+            <div class="card mb-4 review-card" hidden="@(_review is null)">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Review transfer</h2>
+
+                    @if (_review is { } review)
+                    {
+                        <dl class="row mb-1">
+                            <dt class="col-4 text-muted fw-normal">From</dt>
+                            <dd class="col-8 mb-2">@review.FromAccountNumber</dd>
+
+                            <dt class="col-4 text-muted fw-normal">To</dt>
+                            <dd class="col-8 mb-2">
+                                <div>@review.Recipient.RecipientName</div>
+                                <div class="text-muted small">@review.Recipient.AccountNumber</div>
+                            </dd>
+
+                            <dt class="col-4 text-muted fw-normal">Amount</dt>
+                            <dd class="col-8 mb-2 fs-4 fw-semibold">@Money(review.Input.Amount!.Value)</dd>
+
+                            @if (!string.IsNullOrWhiteSpace(review.Input.Comment))
+                            {
+                                <dt class="col-4 text-muted fw-normal">Note</dt>
+                                <dd class="col-8 mb-0 text-break">@review.Input.Comment</dd>
+                            }
+                        </dl>
+
+                        <div class="alert alert-warning py-2 small mt-2" role="note">
+                            Check the account number carefully. Money that has been sent cannot be taken back.
+                        </div>
+                    }
+
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <a href="/transfer" class="btn btn-outline-secondary">Back</a>
+
+                        <EditForm Model="_confirmModel" FormName="transfer-review" OnValidSubmit="SubmitAsync" method="post" novalidate>
+                            <input type="hidden" name="ReviewInput.RequestId" value="@_review?.Input.RequestId" />
+                            <input type="hidden" name="ReviewInput.FromAccountId" value="@_review?.Input.FromAccountId" />
+                            <input type="hidden" name="ReviewInput.ToAccountNumber" value="@_review?.Input.ToAccountNumber" />
+                            <input type="hidden" name="ReviewInput.Amount" value="@_review?.Input.Amount?.ToString(CultureInfo.InvariantCulture)" />
+                            <input type="hidden" name="ReviewInput.Comment" value="@_review?.Input.Comment" />
+                            <button class="btn btn-primary" type="submit">Confirm and send</button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <p class="mt-2">
+            <a href="/transactions">View all transactions &rsaquo;</a>
+        </p>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromForm(FormName = "transfer-details")]
+    private TransferInput? DetailsInput { get; set; }
+
+    [SupplyParameterFromForm(FormName = "transfer-review")]
+    private TransferInput? ReviewInput { get; set; }
+
+    private readonly object _confirmModel = new();
+
+    private EditContext _detailsContext = default!;
+    private ValidationMessageStore _serverMessages = default!;
+
+    private List<AccountSummary> _accounts = [];
+    private TransferResponse? _success;
+    private ReviewState? _review;
+    private string? _token;
+    private string? _alert;
+    private bool _sessionExpired;
+    private bool _unavailable;
+
+    private sealed record ReviewState(TransferInput Input, RecipientVerification Recipient, string FromAccountNumber);
+
+    protected override async Task OnInitializedAsync()
+    {
+        DetailsInput ??= new TransferInput();
+        BuildEditContext();
+
+        // The API token was kept with the sign-in. A session that started before
+        // that (or one whose token has expired) has to sign in again.
+        _token = HttpContext is null
+            ? null
+            : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(_token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        await LoadAsync();
+
+        if (DetailsInput.FromAccountId == Guid.Empty)
+        {
+            DetailsInput.FromAccountId = _accounts.FirstOrDefault(a => a.IsActive)?.AccountId ?? Guid.Empty;
+        }
+    }
+
+    private void BuildEditContext()
+    {
+        _detailsContext = new EditContext(DetailsInput!);
+        _serverMessages = new ValidationMessageStore(_detailsContext);
+
+        _detailsContext.OnFieldChanged += (_, e) => _serverMessages.Clear(e.FieldIdentifier);
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var accounts = await Banking.GetMyAccountsAsync(_token!);
+
+            if (accounts.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            _accounts = accounts.Data ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private async Task ContinueAsync()
+    {
+        _alert = null;
+        _unavailable = false;
+        _serverMessages.Clear();
+
+        await BuildReviewAsync(DetailsInput!);
+        _detailsContext.NotifyValidationStateChanged();
+    }
+
+    private async Task BuildReviewAsync(TransferInput input)
+    {
+        var fromAccount = _accounts.FirstOrDefault(a => a.AccountId == input.FromAccountId);
+
+        if (fromAccount is null)
+        {
+            _alert = "That account is not available. Choose one of your accounts and try again.";
+            return;
+        }
+
+        ApiResult<RecipientVerification> verified;
+
+        try
+        {
+            verified = await Banking.VerifyRecipientAsync(_token!, input.ToAccountNumber.Trim());
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+            return;
+        }
+
+        if (verified.Error == "Unauthorized")
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        if (!verified.Success || verified.Data is not { } recipient)
+        {
+            _serverMessages.Add(
+                _detailsContext.Field(nameof(TransferInput.ToAccountNumber)),
+                "We could not find an online-banking account with that number that can receive money. "
+                + "Check the number and try again.");
+            return;
+        }
+
+        if (recipient.AccountNumber == fromAccount.AccountNumber)
+        {
+            _serverMessages.Add(
+                _detailsContext.Field(nameof(TransferInput.ToAccountNumber)),
+                "Choose a different account from the one you are sending from.");
+            return;
+        }
+
+        _review = new ReviewState(input, recipient, fromAccount.AccountNumber);
+    }
+
+    private async Task SubmitAsync()
+    {
+        _alert = null;
+        _success = null;
+        _unavailable = false;
+
+        ApiResult<TransferResponse> result;
+
+        try
+        {
+            result = await Banking.TransferAsync(_token!, ReviewInput!.ToRequest());
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+            DetailsInput = ReviewInput;
+            BuildEditContext();
+            return;
+        }
+
+        _review = null;
+
+        if (result.Success && result.Data is { } sent)
+        {
+            _success = sent;
+            DetailsInput = new TransferInput { FromAccountId = ReviewInput.FromAccountId };
+            BuildEditContext();
+            await LoadAsync();
+            return;
+        }
+
+        // Whatever went wrong, land back on the details form with what was
+        // entered so the customer does not have to retype everything.
+        DetailsInput = ReviewInput;
+        BuildEditContext();
+
+        switch (result.Error)
+        {
+            case "Unauthorized":
+                _sessionExpired = true;
+                break;
+
+            case "RecipientUnavailable":
+                _alert = "We could not verify that recipient anymore. Check the account number and try again.";
+                break;
+
+            case "SameAccount":
+                _alert = "Choose a different account from the one you are sending from.";
+                break;
+
+            case "InsufficientFunds":
+                _alert = "There is not enough available balance in that account.";
+                break;
+
+            case "SenderAccountInactive":
+                _alert = "The account you are sending from is not active, so it cannot send money.";
+                break;
+
+            case "AccountNotFound":
+                _alert = "That account is not available. Choose one of your accounts and try again.";
+                break;
+
+            case "RequestIdConflict":
+                _alert = "This transfer was already used. Reload the page and try again.";
+                break;
+
+            default:
+                _alert = "Some of the details are not valid. Please review the form and try again.";
+                break;
+        }
+
+        await LoadAsync();
+    }
+
+    private static string Money(decimal value) =>
+        "₹" + value.ToString("N2", CultureInfo.InvariantCulture);
+
+    private static string Ref(Guid transactionId) =>
+        "SB-" + transactionId.ToString("N")[..8].ToUpperInvariant();
+
+    private static string Time(DateTime utc) =>
+        utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+
+}

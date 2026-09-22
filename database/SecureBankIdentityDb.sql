@@ -22,6 +22,7 @@
                           It points at its customer through BankCustomerId; name,
                           date of birth and phone are read from BankCustomers.
         * OtpChallenges - short-lived tokens (password reset, throttling log).
+        * Transactions  - one row per completed money transfer between two accounts.
 
     Primary keys: every table uses a GUID (UNIQUEIDENTIFIER) as its primary key,
     never a serial number and never a business number. Business numbers (CIF,
@@ -173,7 +174,8 @@ BEGIN
             REFERENCES dbo.BankCustomers (CustomerId),
 
         AvailableBalance DECIMAL(18, 2) NOT NULL
-            CONSTRAINT DF_BankAccounts_Balance DEFAULT (0),
+            CONSTRAINT DF_BankAccounts_Balance DEFAULT (0)
+            CONSTRAINT CK_BankAccounts_Balance CHECK (AvailableBalance >= 0),
 
         StatusId UNIQUEIDENTIFIER NOT NULL
             CONSTRAINT DF_BankAccounts_Status DEFAULT ('20000000-0000-0000-0000-000000000001')
@@ -319,6 +321,53 @@ BEGIN
 END;
 GO
 
+/* ------------------------------------------------------------------
+   Money transfers. A row is written only when a transfer completes, in the
+   same database transaction that moves the money, so a row here always
+   means the debit and the credit both happened.
+     TransactionId     - GUID key of the transfer.
+     RequestId         - a GUID made when the transfer form is shown. It is unique, so
+                         a double click or a refresh cannot send the money twice.
+     FromAccountId /   - the two accounts (GUID keys); account numbers are read by
+     ToAccountId         joining BankAccounts, never copied here.
+     Amount            - always positive, two decimals.
+     InitiatedByUserId - the online login that made the transfer (audit).
+   Balances after the transfer are not stored: they are derivable and would only
+   duplicate BankAccounts.AvailableBalance.
+------------------------------------------------------------------- */
+IF OBJECT_ID(N'dbo.Transactions', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Transactions
+    (
+        TransactionId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_Transactions PRIMARY KEY
+            CONSTRAINT DF_Transactions_Id DEFAULT (NEWID()),
+
+        RequestId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT UQ_Transactions_RequestId UNIQUE,
+
+        FromAccountId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_Transactions_FromAccount REFERENCES dbo.BankAccounts (AccountId),
+
+        ToAccountId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_Transactions_ToAccount REFERENCES dbo.BankAccounts (AccountId),
+
+        Amount DECIMAL(18, 2) NOT NULL
+            CONSTRAINT CK_Transactions_Amount CHECK (Amount > 0),
+
+        Comment NVARCHAR(200) NULL,
+
+        InitiatedByUserId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_Transactions_User REFERENCES dbo.Users (UserId),
+
+        CreatedAt DATETIME2(3) NOT NULL
+            CONSTRAINT DF_Transactions_CreatedAt DEFAULT (SYSUTCDATETIME()),
+
+        CONSTRAINT CK_Transactions_DifferentAccounts CHECK (FromAccountId <> ToAccountId)
+    );
+END;
+GO
+
 /* ==================================================================
    Upgrade an older database to the schema above. Idempotent.
    (Statements that mention old columns are dynamic SQL so this script also
@@ -406,6 +455,11 @@ IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_BankCustomers
 GO
 
 IF COL_LENGTH(N'dbo.BankCustomers', N'AvailableBalance') IS NOT NULL ALTER TABLE dbo.BankCustomers DROP COLUMN AvailableBalance;
+GO
+
+/* ---- Balances can never be negative (transfers require sufficient funds). */
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_BankAccounts_Balance')
+    ALTER TABLE dbo.BankAccounts ADD CONSTRAINT CK_BankAccounts_Balance CHECK (AvailableBalance >= 0);
 GO
 
 /* ---- BankCustomers: the email is chosen at registration and lives on the login. */
@@ -512,6 +566,14 @@ GO
 /* One online-banking login per bank customer. */
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Users_BankCustomerId' AND object_id = OBJECT_ID(N'dbo.Users'))
     CREATE UNIQUE INDEX UX_Users_BankCustomerId ON dbo.Users (BankCustomerId) WHERE BankCustomerId IS NOT NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Transactions_From' AND object_id = OBJECT_ID(N'dbo.Transactions'))
+    CREATE INDEX IX_Transactions_From ON dbo.Transactions (FromAccountId, CreatedAt DESC);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Transactions_To' AND object_id = OBJECT_ID(N'dbo.Transactions'))
+    CREATE INDEX IX_Transactions_To ON dbo.Transactions (ToAccountId, CreatedAt DESC);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_OtpChallenges_Throttle' AND object_id = OBJECT_ID(N'dbo.OtpChallenges'))

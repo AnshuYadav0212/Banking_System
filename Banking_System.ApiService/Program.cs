@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.Security.Claims;
+using System.Text;
+using System.Threading.RateLimiting;
 using Banking_System.ApiService.Data;
 using Banking_System.ApiService.Models;
 using Banking_System.ApiService.Repositories;
@@ -79,6 +81,9 @@ builder.Services.AddScoped<ISqlConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IBankCustomerRepository, BankCustomerRepository>();
 builder.Services.AddScoped<IOtpChallengeRepository, OtpChallengeRepository>();
+builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
+builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<TransferService>();
 builder.Services.AddScoped<OtpService>();
 // Real email goes out over SMTP once Smtp:Host is configured; until then
 // notifications are only logged (Development) so nothing is silently "sent".
@@ -96,6 +101,22 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Confirming a payee reveals a name for an account number, so it is capped
+    // per signed-in user to slow down probing account numbers for names.
+    options.AddPolicy("recipient-lookup", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -111,6 +132,7 @@ else
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

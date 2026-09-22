@@ -136,3 +136,193 @@ h1:focus {
     letter-spacing: .6em;
     font-weight: 600;
 }
+
+/* ---- Send money: account picker ---- */
+.account-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+}
+
+.account-option {
+    position: relative;
+    display: block;
+    cursor: pointer;
+    margin: 0;
+}
+
+.account-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+}
+
+.account-card {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    min-width: 13rem;
+    padding: .75rem 1rem;
+    border: 1.5px solid #dee2e6;
+    border-radius: .6rem;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.account-option.selected .account-card {
+    border-color: #1b6ec2;
+    box-shadow: 0 0 0 .15rem rgba(27, 110, 194, .15);
+}
+
+.account-option.disabled {
+    cursor: not-allowed;
+}
+
+.account-option.disabled .account-card {
+    opacity: .55;
+}
+
+.account-card-number {
+    font-weight: 600;
+    letter-spacing: .03em;
+}
+
+.account-card-balance {
+    font-size: .85rem;
+    color: #6c757d;
+}
+
+.account-card-flag {
+    align-self: flex-start;
+    font-size: .7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #b32121;
+}
+
+/* ---- Send money: review + success ---- */
+.review-card {
+    border-color: #1b6ec2;
+}
+
+.success-panel {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+}
+
+.success-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    border-radius: 50%;
+    background: #198754;
+    color: #fff;
+    font-weight: 700;
+}
+
+/* ---- Transactions list ---- */
+.tx-day-label {
+    margin: 1.25rem 0 .4rem;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #6c757d;
+}
+
+.tx-list {
+    border: 1px solid #e9ecef;
+    border-radius: .6rem;
+    overflow: hidden;
+    background: #fff;
+}
+
+.tx-row {
+    border-bottom: 1px solid #e9ecef;
+}
+
+.tx-row:last-child {
+    border-bottom: none;
+}
+
+.tx-row > summary {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .65rem 1rem;
+    cursor: pointer;
+    list-style: none;
+}
+
+.tx-row > summary::-webkit-details-marker {
+    display: none;
+}
+
+.tx-row[open] > summary {
+    background: #f8f9fa;
+}
+
+.tx-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border-radius: 50%;
+    font-weight: 700;
+}
+
+.tx-icon.tx-out {
+    background: #fde8e8;
+    color: #b32121;
+}
+
+.tx-icon.tx-in {
+    background: #e6f4ea;
+    color: #198754;
+}
+
+.tx-icon.tx-own {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.tx-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tx-title {
+    font-weight: 600;
+}
+
+.tx-sub {
+    font-size: .8rem;
+    color: #6c757d;
+}
+
+.tx-amount {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.tx-amount.tx-out {
+    color: #b32121;
+}
+
+.tx-amount.tx-in {
+    color: #198754;
+}
+
+.tx-detail {
+    padding: .75rem 1rem 1rem 3.5rem;
+    background: #f8f9fa;
+    border-top: 1px dashed #dee2e6;
+}

@@ -2,6 +2,7 @@ using Banking_System.Web;
 using Banking_System.Web.Authentication;
 using Banking_System.Web.Components;
 using Banking_System.Web.Services.Authentication;
+using Banking_System.Web.Services.Banking;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -18,6 +19,11 @@ builder.Services.AddHttpClient<AuthApiClient>(client =>
 {
     client.BaseAddress = new Uri("https+http://apiservice");
 
+});
+
+builder.Services.AddHttpClient<BankingApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https+http://apiservice");
 });
 
 builder.Services
