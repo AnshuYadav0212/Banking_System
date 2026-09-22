@@ -105,6 +105,67 @@ FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM dbo.OtpPurposes p WHERE p.PurposeId = v.Id);
 GO
 
+IF OBJECT_ID(N'dbo.TicketStatuses', N'U') IS NULL
+    CREATE TABLE dbo.TicketStatuses
+    (
+        StatusId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_TicketStatuses PRIMARY KEY,
+
+        Name NVARCHAR(30) NOT NULL
+            CONSTRAINT UQ_TicketStatuses_Name UNIQUE
+    );
+GO
+
+IF OBJECT_ID(N'dbo.TicketCategories', N'U') IS NULL
+    CREATE TABLE dbo.TicketCategories
+    (
+        CategoryId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_TicketCategories PRIMARY KEY,
+
+        Name NVARCHAR(50) NOT NULL
+            CONSTRAINT UQ_TicketCategories_Name UNIQUE
+    );
+GO
+
+IF OBJECT_ID(N'dbo.TicketPriorities', N'U') IS NULL
+    CREATE TABLE dbo.TicketPriorities
+    (
+        PriorityId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_TicketPriorities PRIMARY KEY,
+
+        Name NVARCHAR(20) NOT NULL
+            CONSTRAINT UQ_TicketPriorities_Name UNIQUE
+    );
+GO
+
+INSERT dbo.TicketStatuses (StatusId, Name)
+SELECT v.Id, v.Name
+FROM (VALUES
+        ('40000000-0000-0000-0000-000000000001', N'Open'),
+        ('40000000-0000-0000-0000-000000000002', N'UnderReview'),
+        ('40000000-0000-0000-0000-000000000003', N'Resolved'),
+        ('40000000-0000-0000-0000-000000000004', N'Rejected'),
+        ('40000000-0000-0000-0000-000000000005', N'Closed')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = v.Id);
+
+INSERT dbo.TicketCategories (CategoryId, Name)
+SELECT v.Id, v.Name
+FROM (VALUES
+        ('50000000-0000-0000-0000-000000000001', N'TransactionDispute'),
+        ('50000000-0000-0000-0000-000000000002', N'TransactionIssue'),
+        ('50000000-0000-0000-0000-000000000003', N'Security'),
+        ('50000000-0000-0000-0000-000000000004', N'General')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = v.Id);
+
+INSERT dbo.TicketPriorities (PriorityId, Name)
+SELECT v.Id, v.Name
+FROM (VALUES
+        ('60000000-0000-0000-0000-000000000001', N'Low'),
+        ('60000000-0000-0000-0000-000000000002', N'Normal'),
+        ('60000000-0000-0000-0000-000000000003', N'High')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = v.Id);
+GO
+
 /* ==================================================================
    Bank data
 ================================================================== */
@@ -365,6 +426,93 @@ BEGIN
 
         CONSTRAINT CK_Transactions_DifferentAccounts CHECK (FromAccountId <> ToAccountId)
     );
+END;
+GO
+
+/* ==================================================================
+   Support tickets
+
+   A customer raises a ticket (optionally against one of their own
+   transactions); an employee or admin reviews and resolves it. TicketEvents
+   is the ticket's whole activity trail: the creation row and every status
+   change, each with the acting user and an optional note. There is no
+   separate "comments" table - a status change with a note serves as both.
+================================================================== */
+IF OBJECT_ID(N'dbo.SupportTickets', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SupportTickets
+    (
+        TicketId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_SupportTickets PRIMARY KEY
+            CONSTRAINT DF_SupportTickets_Id DEFAULT (NEWID()),
+
+        CustomerId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_SupportTickets_Customer REFERENCES dbo.BankCustomers (CustomerId),
+
+        CreatedByUserId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_SupportTickets_CreatedBy REFERENCES dbo.Users (UserId),
+
+        CategoryId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_SupportTickets_Category REFERENCES dbo.TicketCategories (CategoryId),
+
+        PriorityId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT DF_SupportTickets_Priority DEFAULT ('60000000-0000-0000-0000-000000000002')
+            CONSTRAINT FK_SupportTickets_Priority REFERENCES dbo.TicketPriorities (PriorityId),
+
+        StatusId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT DF_SupportTickets_Status DEFAULT ('40000000-0000-0000-0000-000000000001')
+            CONSTRAINT FK_SupportTickets_Status REFERENCES dbo.TicketStatuses (StatusId),
+
+        Subject NVARCHAR(200) NOT NULL,
+
+        Description NVARCHAR(2000) NOT NULL,
+
+        TransactionId UNIQUEIDENTIFIER NULL
+            CONSTRAINT FK_SupportTickets_Transaction REFERENCES dbo.Transactions (TransactionId),
+
+        AssignedToUserId UNIQUEIDENTIFIER NULL
+            CONSTRAINT FK_SupportTickets_AssignedTo REFERENCES dbo.Users (UserId),
+
+        ResolutionNote NVARCHAR(2000) NULL,
+
+        CreatedAt DATETIME2(3) NOT NULL
+            CONSTRAINT DF_SupportTickets_CreatedAt DEFAULT (SYSUTCDATETIME()),
+
+        UpdatedAt DATETIME2(3) NULL
+    );
+
+    CREATE INDEX IX_SupportTickets_Customer ON dbo.SupportTickets (CustomerId, CreatedAt DESC);
+    CREATE INDEX IX_SupportTickets_Status ON dbo.SupportTickets (StatusId, CreatedAt DESC);
+END;
+GO
+
+IF OBJECT_ID(N'dbo.TicketEvents', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TicketEvents
+    (
+        TicketEventId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_TicketEvents PRIMARY KEY
+            CONSTRAINT DF_TicketEvents_Id DEFAULT (NEWID()),
+
+        TicketId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_TicketEvents_Ticket REFERENCES dbo.SupportTickets (TicketId),
+
+        ActorUserId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_TicketEvents_Actor REFERENCES dbo.Users (UserId),
+
+        FromStatusId UNIQUEIDENTIFIER NULL
+            CONSTRAINT FK_TicketEvents_FromStatus REFERENCES dbo.TicketStatuses (StatusId),
+
+        ToStatusId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT FK_TicketEvents_ToStatus REFERENCES dbo.TicketStatuses (StatusId),
+
+        Note NVARCHAR(2000) NULL,
+
+        CreatedAt DATETIME2(3) NOT NULL
+            CONSTRAINT DF_TicketEvents_CreatedAt DEFAULT (SYSUTCDATETIME())
+    );
+
+    CREATE INDEX IX_TicketEvents_Ticket ON dbo.TicketEvents (TicketId, CreatedAt);
 END;
 GO
 

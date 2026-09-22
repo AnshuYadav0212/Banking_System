@@ -9,17 +9,24 @@ main {
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    background-image: linear-gradient(195deg, #0b1f4d 0%, #3a0647 85%);
 }
 
 .top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
+    background-color: var(--topbar-bg, rgba(255, 255, 255, .85));
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border, #e6e8f0);
     justify-content: flex-end;
-    height: 3.5rem;
+    height: 3.75rem;
     display: flex;
     align-items: center;
 }
+
+    .top-row ::deep a {
+        color: var(--text-muted, #667085);
+        font-weight: 500;
+        font-size: .9rem;
+    }
 
     .top-row ::deep a, .top-row ::deep .btn-link {
         white-space: nowrap;
@@ -35,6 +42,87 @@ main {
         overflow: hidden;
         text-overflow: ellipsis;
     }
+
+.topbar-user {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+
+.topbar-user-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border-radius: 50%;
+    background: var(--primary-light, #eaefff);
+    color: var(--primary, #2954e0);
+    font-weight: 700;
+    font-size: .8rem;
+}
+
+.topbar-user-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 0;
+}
+
+.topbar-user-name {
+    color: var(--text, #1c2333);
+    font-weight: 600;
+    font-size: .85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 14rem;
+}
+
+.topbar-user-role {
+    color: var(--text-muted, #667085);
+    font-size: .72rem;
+}
+
+@media (max-width: 640.98px) {
+    .topbar-user-info {
+        display: none;
+    }
+}
+
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    flex: none;
+    margin-left: 1.1rem;
+    border: 1px solid var(--border, #e6e8f0);
+    border-radius: 50%;
+    background: var(--surface, #fff);
+    color: var(--text-muted, #667085);
+    cursor: pointer;
+    transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.theme-toggle:hover {
+    color: var(--primary, #2954e0);
+    border-color: var(--primary, #2954e0);
+}
+
+.theme-icon-moon {
+    display: none;
+}
+
+[data-theme="dark"] .theme-icon-sun {
+    display: none;
+}
+
+[data-theme="dark"] .theme-icon-moon {
+    display: block;
+}
 
 @media (max-width: 640.98px) {
     .top-row {

@@ -1,0 +1,239 @@
+@page "/tickets/{TicketId:guid}"
+@attribute [Authorize]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Tickets
+@using Banking_System.Web.Services.Authentication
+@using Banking_System.Web.Services.Tickets
+@inject TicketApiClient Tickets
+
+<PageTitle>Ticket | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page">
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a>.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else if (_notFound)
+    {
+        <div class="alert alert-warning" role="alert">
+            That ticket does not exist, or is not one of yours.
+        </div>
+    }
+    else if (_ticket is { } ticket)
+    {
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+            <div>
+                <div class="text-muted small">Ticket @Ref(TicketId)</div>
+                <h1 class="h3 mb-0">@ticket.Subject</h1>
+            </div>
+            <span class="badge fs-6 @TicketStatuses.BadgeClass(ticket.Status)">@TicketStatuses.Label(ticket.Status)</span>
+        </div>
+
+        @if (_alert is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_alert</div>
+        }
+        @if (_notice is not null)
+        {
+            <div class="alert alert-success" role="alert">@_notice</div>
+        }
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-3 text-muted fw-normal">Category</dt>
+                    <dd class="col-9">@TicketCategories.Label(ticket.Category)</dd>
+
+                    <dt class="col-3 text-muted fw-normal">Priority</dt>
+                    <dd class="col-9">@ticket.Priority</dd>
+
+                    @if (ticket.TransactionId is { } txId)
+                    {
+                        <dt class="col-3 text-muted fw-normal">Transaction</dt>
+                        <dd class="col-9"><code>@Ref(txId)</code></dd>
+                    }
+
+                    <dt class="col-3 text-muted fw-normal">Assigned to</dt>
+                    <dd class="col-9">@(ticket.AssignedToUsername ?? "Unassigned")</dd>
+
+                    <dt class="col-3 text-muted fw-normal">Description</dt>
+                    <dd class="col-9 text-break">@ticket.Description</dd>
+
+                    @if (!string.IsNullOrWhiteSpace(ticket.ResolutionNote))
+                    {
+                        <dt class="col-3 text-muted fw-normal">Resolution note</dt>
+                        <dd class="col-9 text-break">@ticket.ResolutionNote</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        @* These are plain HTML form posts, not Blazor click handlers: this page is
+           static server-rendered, so a bare @@onclick would never fire. Each posts
+           to a minimal API endpoint (Authentication/TicketEndpoints.cs) and
+           redirects back here, which is what makes the new status show up. *@
+        <AuthorizeView Roles="Employee,Admin">
+            <Authorized>
+                <div class="card mb-3 review-card">
+                    <div class="card-body">
+                        <h2 class="h6">Take action</h2>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            @if (ticket.Status == "Open")
+                            {
+                                <form method="post" action="/tickets/@TicketId/start-review">
+                                    <AntiforgeryToken />
+                                    <button class="btn btn-outline-primary" type="submit">Start review</button>
+                                </form>
+                            }
+                            @if (ticket.Status is "Resolved" or "Rejected")
+                            {
+                                <form method="post" action="/tickets/@TicketId/close">
+                                    <AntiforgeryToken />
+                                    <button class="btn btn-secondary" type="submit">Close ticket</button>
+                                </form>
+                            }
+                        </div>
+
+                        @if (ticket.Status is "Open" or "UnderReview")
+                        {
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-6">
+                                    <form method="post" action="/tickets/@TicketId/resolve">
+                                        <AntiforgeryToken />
+                                        <label class="form-label" for="resolve-note">Resolution note</label>
+                                        <textarea class="form-control" id="resolve-note" name="note" rows="2" maxlength="2000"></textarea>
+                                        <button class="btn btn-success mt-2" type="submit">Resolve</button>
+                                    </form>
+                                </div>
+                                <div class="col-md-6">
+                                    <form method="post" action="/tickets/@TicketId/reject">
+                                        <AntiforgeryToken />
+                                        <label class="form-label" for="reject-note">Rejection reason</label>
+                                        <textarea class="form-control" id="reject-note" name="note" rows="2" maxlength="2000"></textarea>
+                                        <button class="btn btn-outline-danger mt-2" type="submit">Reject</button>
+                                    </form>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <h2 class="h5">Activity</h2>
+        <div class="tx-list mb-3">
+            @foreach (var e in ticket.Events)
+            {
+                <div class="tx-row ticket-event">
+                    <div class="tx-main">
+                        <span class="tx-title">@EventTitle(e)</span>
+                        <span class="tx-sub">@(e.ActorUsername ?? "system") (@e.ActorRole) &middot; @Time(e.CreatedAt)</span>
+                        @if (!string.IsNullOrWhiteSpace(e.Note))
+                        {
+                            <div class="small mt-1">"@e.Note"</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid TicketId { get; set; }
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "ok")]
+    private string? Ok { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    private TicketDetail? _ticket;
+    private string? _token;
+    private string? _alert;
+    private string? _notice;
+    private bool _sessionExpired;
+    private bool _unavailable;
+    private bool _notFound;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ApplyQueryFeedback();
+        await LoadAsync();
+    }
+
+    private void ApplyQueryFeedback()
+    {
+        if (Ok is not null)
+        {
+            _notice = "Done - the ticket was updated.";
+        }
+
+        _alert = Error switch
+        {
+            null => null,
+            "note-required" => "A note is required for that action.",
+            "InvalidTransition" => "That action no longer applies - the ticket's status has since changed.",
+            "Conflict" => "Someone else just updated this ticket. The page below shows the latest state.",
+            "unavailable" => "The banking API was unavailable when that action was submitted. Try again.",
+            _ => "That action could not be completed."
+        };
+    }
+
+    private async Task LoadAsync()
+    {
+        _token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(_token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            var result = await Tickets.GetDetailAsync(_token, TicketId);
+
+            if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            if (!result.Success || result.Data is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _ticket = result.Data;
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private static string EventTitle(TicketEventDto e) => e.FromStatus is null
+        ? "Ticket created"
+        : $"{TicketStatuses.Label(e.FromStatus)} → {TicketStatuses.Label(e.ToStatus)}";
+
+    private static string Ref(Guid id) => "TCK-" + id.ToString("N")[..8].ToUpperInvariant();
+
+    private static string Time(DateTime utc) => utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+}

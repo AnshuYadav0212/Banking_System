@@ -43,6 +43,10 @@ public interface ITransactionRepository
         Guid requestId,
         CancellationToken cancellationToken = default);
 
+    Task<TransactionRecord?> GetByIdAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>The most recent transfers sent or received by any account of the customer.</summary>
     Task<IReadOnlyList<TransactionRecord>> GetForCustomerAsync(
         Guid customerId,
@@ -205,6 +209,19 @@ public sealed class TransactionRepository : ITransactionRepository
             new CommandDefinition(
                 SelectRecord + " WHERE t.RequestId = @RequestId;",
                 new { RequestId = requestId },
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task<TransactionRecord?> GetByIdAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = _connectionFactory.CreateConnection();
+
+        return await connection.QuerySingleOrDefaultAsync<TransactionRecord>(
+            new CommandDefinition(
+                SelectRecord + " WHERE t.TransactionId = @TransactionId;",
+                new { TransactionId = transactionId },
                 cancellationToken: cancellationToken));
     }
 

@@ -37,14 +37,17 @@
 
         <div class="mb-3">
             <label class="form-label" for="identifier">Username or email</label>
-            <input class="form-control"
-                   id="identifier"
-                   name="Identifier"
-                   type="text"
-                   autocomplete="username"
-                   autocapitalize="none"
-                   spellcheck="false"
-                   required />
+            <div class="input-group">
+                <span class="input-group-text"><InputFieldIcon Name="user" /></span>
+                <input class="form-control"
+                       id="identifier"
+                       name="Identifier"
+                       type="text"
+                       autocomplete="username"
+                       autocapitalize="none"
+                       spellcheck="false"
+                       required />
+            </div>
             <div class="form-text">
                 <a href="/forgot-username" class="text-decoration-none">Forgot username?</a>
             </div>
@@ -52,12 +55,15 @@
 
         <div class="mb-3">
             <label class="form-label" for="password">Password</label>
-            <input class="form-control"
-                   id="password"
-                   name="Password"
-                   type="password"
-                   autocomplete="current-password"
-                   required />
+            <div class="input-group">
+                <span class="input-group-text"><InputFieldIcon Name="lock" /></span>
+                <input class="form-control"
+                       id="password"
+                       name="Password"
+                       type="password"
+                       autocomplete="current-password"
+                       required />
+            </div>
             <div class="form-text">
                 <a href="/forgot-password" class="text-decoration-none">Forgot password?</a>
             </div>

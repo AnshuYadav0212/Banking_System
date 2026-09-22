@@ -84,6 +84,8 @@ builder.Services.AddScoped<IOtpChallengeRepository, OtpChallengeRepository>();
 builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<TransferService>();
+builder.Services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
+builder.Services.AddScoped<SupportTicketService>();
 builder.Services.AddScoped<OtpService>();
 // Real email goes out over SMTP once Smtp:Host is configured; until then
 // notifications are only logged (Development) so nothing is silently "sent".

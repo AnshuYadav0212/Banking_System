@@ -5,6 +5,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <script>
+        // Applied before any CSS paints, so there is no flash of the wrong
+        // theme. Kept in sync afterwards by wwwroot/js/theme.js.
+        (function () {
+            try {
+                var stored = localStorage.getItem("theme");
+                var theme = stored === "dark" || stored === "light"
+                    ? stored
+                    : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+                document.documentElement.setAttribute("data-theme", theme);
+            } catch {
+                document.documentElement.setAttribute("data-theme", "light");
+            }
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["Banking_System.Web.styles.css"]" />
@@ -17,6 +35,7 @@
     <Routes />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["js/username-check.js"]"></script>
+    <script src="@Assets["js/theme.js"]"></script>
 </body>
 
 </html>
