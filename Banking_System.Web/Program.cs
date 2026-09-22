@@ -81,6 +81,7 @@ app.UseAntiforgery();
 app.UseOutputCache();
 
 app.MapAuthEndpoints();
+app.MapTicketEndpoints();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

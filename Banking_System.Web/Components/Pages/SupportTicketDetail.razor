@@ -78,32 +78,54 @@
             </div>
         </div>
 
+        @* These are plain HTML form posts, not Blazor click handlers: this page is
+           static server-rendered, so a bare @@onclick would never fire. Each posts
+           to a minimal API endpoint (Authentication/TicketEndpoints.cs) and
+           redirects back here, which is what makes the new status show up. *@
         <AuthorizeView Roles="Employee,Admin">
             <Authorized>
                 <div class="card mb-3 review-card">
                     <div class="card-body">
                         <h2 class="h6">Take action</h2>
 
-                        <div class="mb-2">
-                            <label class="form-label" for="note">Note <span class="text-muted">(required to resolve or reject)</span></label>
-                            <textarea class="form-control" id="note" rows="3" maxlength="2000" @bind="_note"></textarea>
-                        </div>
-
                         <div class="d-flex flex-wrap gap-2">
                             @if (ticket.Status == "Open")
                             {
-                                <button class="btn btn-outline-primary" disabled="@_busy" @onclick="StartReviewAsync">Start review</button>
-                            }
-                            @if (ticket.Status is "Open" or "UnderReview")
-                            {
-                                <button class="btn btn-success" disabled="@_busy" @onclick="ResolveAsync">Resolve</button>
-                                <button class="btn btn-outline-danger" disabled="@_busy" @onclick="RejectAsync">Reject</button>
+                                <form method="post" action="/tickets/@TicketId/start-review">
+                                    <AntiforgeryToken />
+                                    <button class="btn btn-outline-primary" type="submit">Start review</button>
+                                </form>
                             }
                             @if (ticket.Status is "Resolved" or "Rejected")
                             {
-                                <button class="btn btn-secondary" disabled="@_busy" @onclick="CloseAsync">Close ticket</button>
+                                <form method="post" action="/tickets/@TicketId/close">
+                                    <AntiforgeryToken />
+                                    <button class="btn btn-secondary" type="submit">Close ticket</button>
+                                </form>
                             }
                         </div>
+
+                        @if (ticket.Status is "Open" or "UnderReview")
+                        {
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-6">
+                                    <form method="post" action="/tickets/@TicketId/resolve">
+                                        <AntiforgeryToken />
+                                        <label class="form-label" for="resolve-note">Resolution note</label>
+                                        <textarea class="form-control" id="resolve-note" name="note" rows="2" maxlength="2000"></textarea>
+                                        <button class="btn btn-success mt-2" type="submit">Resolve</button>
+                                    </form>
+                                </div>
+                                <div class="col-md-6">
+                                    <form method="post" action="/tickets/@TicketId/reject">
+                                        <AntiforgeryToken />
+                                        <label class="form-label" for="reject-note">Rejection reason</label>
+                                        <textarea class="form-control" id="reject-note" name="note" rows="2" maxlength="2000"></textarea>
+                                        <button class="btn btn-outline-danger mt-2" type="submit">Reject</button>
+                                    </form>
+                                </div>
+                            </div>
+                        }
                     </div>
                 </div>
             </Authorized>
@@ -135,17 +157,43 @@
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 
+    [SupplyParameterFromQuery(Name = "ok")]
+    private string? Ok { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
     private TicketDetail? _ticket;
     private string? _token;
-    private string _note = "";
-    private bool _busy;
     private string? _alert;
     private string? _notice;
     private bool _sessionExpired;
     private bool _unavailable;
     private bool _notFound;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        ApplyQueryFeedback();
+        await LoadAsync();
+    }
+
+    private void ApplyQueryFeedback()
+    {
+        if (Ok is not null)
+        {
+            _notice = "Done - the ticket was updated.";
+        }
+
+        _alert = Error switch
+        {
+            null => null,
+            "note-required" => "A note is required for that action.",
+            "InvalidTransition" => "That action no longer applies - the ticket's status has since changed.",
+            "Conflict" => "Someone else just updated this ticket. The page below shows the latest state.",
+            "unavailable" => "The banking API was unavailable when that action was submitted. Try again.",
+            _ => "That action could not be completed."
+        };
+    }
 
     private async Task LoadAsync()
     {
@@ -178,67 +226,6 @@
         catch (HttpRequestException)
         {
             _unavailable = true;
-        }
-    }
-
-    private async Task StartReviewAsync() => await RunActionAsync(() => Tickets.StartReviewAsync(_token!, TicketId), "Ticket moved to Under Review.");
-
-    private async Task ResolveAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_note))
-        {
-            _alert = "Add a note describing how this was resolved.";
-            return;
-        }
-
-        await RunActionAsync(() => Tickets.ResolveAsync(_token!, TicketId, _note.Trim()), "Ticket resolved.");
-    }
-
-    private async Task RejectAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_note))
-        {
-            _alert = "Add a note explaining why this was rejected.";
-            return;
-        }
-
-        await RunActionAsync(() => Tickets.RejectAsync(_token!, TicketId, _note.Trim()), "Ticket rejected.");
-    }
-
-    private async Task CloseAsync() => await RunActionAsync(() => Tickets.CloseAsync(_token!, TicketId, string.IsNullOrWhiteSpace(_note) ? null : _note.Trim()), "Ticket closed.");
-
-    private async Task RunActionAsync(Func<Task<ApiResult<NoData>>> action, string successMessage)
-    {
-        _alert = null;
-        _notice = null;
-        _busy = true;
-
-        try
-        {
-            var result = await action();
-
-            if (result.Success)
-            {
-                _notice = successMessage;
-                _note = "";
-                await LoadAsync();
-            }
-            else if (result.Error == "Unauthorized")
-            {
-                _sessionExpired = true;
-            }
-            else
-            {
-                _alert = "That action could not be completed - the ticket may have just been updated by someone else. Reload and try again.";
-            }
-        }
-        catch (HttpRequestException)
-        {
-            _unavailable = true;
-        }
-        finally
-        {
-            _busy = false;
         }
     }
 
