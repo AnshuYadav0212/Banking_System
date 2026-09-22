@@ -1,0 +1,106 @@
+@page "/tickets"
+@attribute [Authorize(Roles = "Customer")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Tickets
+@using Banking_System.Web.Services.Tickets
+@inject TicketApiClient TicketsApi
+
+<PageTitle>Support tickets | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1>Support tickets</h1>
+            <p class="text-muted">Raise an issue about a transaction or your account, and track it here.</p>
+        </div>
+        <a href="/tickets/new" class="btn btn-primary">Raise a ticket</a>
+    </div>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a> to see your tickets.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else
+    {
+        <div class="btn-group flex-wrap mb-3" role="group" aria-label="Filter by status">
+            <a class="btn btn-sm @(Status is null ? "btn-secondary" : "btn-outline-secondary")" href="/tickets">All</a>
+            @foreach (var s in TicketStatuses.All)
+            {
+                <a class="btn btn-sm @(Status == s.Code ? "btn-secondary" : "btn-outline-secondary")" href="/tickets?status=@s.Code">@s.Label</a>
+            }
+        </div>
+
+        @if (_tickets.Count == 0)
+        {
+            <p class="text-muted">No tickets here yet.</p>
+        }
+        else
+        {
+            <div class="tx-list mb-3">
+                @foreach (var t in _tickets)
+                {
+                    <a class="tx-row ticket-row" href="/tickets/@t.TicketId">
+                        <span class="tx-main">
+                            <span class="tx-title">@t.Subject</span>
+                            <span class="tx-sub">@TicketCategories.Label(t.Category) &middot; @Time(t.CreatedAt)</span>
+                        </span>
+                        <span class="badge @TicketStatuses.BadgeClass(t.Status)">@TicketStatuses.Label(t.Status)</span>
+                    </a>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "status")]
+    private string? Status { get; set; }
+
+    private List<TicketSummary> _tickets = [];
+    private bool _sessionExpired;
+    private bool _unavailable;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            var result = await TicketsApi.GetMineAsync(token, TicketStatuses.ToId(Status));
+
+            if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            _tickets = result.Data ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private static string Time(DateTime utc) =>
+        utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+}

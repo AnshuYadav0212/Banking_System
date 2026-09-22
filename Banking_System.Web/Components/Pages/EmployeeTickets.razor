@@ -1,0 +1,147 @@
+@page "/employee/tickets"
+@attribute [Authorize(Roles = "Employee,Admin")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Tickets
+@using Banking_System.Web.Services.Tickets
+@inject TicketApiClient Tickets
+
+<PageTitle>Ticket queue | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page">
+    <h1>Ticket queue</h1>
+    <p class="text-muted">Every customer support ticket, high priority first.</p>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a>.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap gap-3 mb-3">
+            <div class="btn-group flex-wrap" role="group" aria-label="Filter by status">
+                <a class="btn btn-sm @(Status is null ? "btn-secondary" : "btn-outline-secondary")" href="/employee/tickets@(BuildQuery(null, Category))">All statuses</a>
+                @foreach (var s in TicketStatuses.All)
+                {
+                    <a class="btn btn-sm @(Status == s.Code ? "btn-secondary" : "btn-outline-secondary")" href="/employee/tickets@(BuildQuery(s.Code, Category))">@s.Label</a>
+                }
+            </div>
+
+            <div class="btn-group flex-wrap" role="group" aria-label="Filter by category">
+                <a class="btn btn-sm @(Category is null ? "btn-secondary" : "btn-outline-secondary")" href="/employee/tickets@(BuildQuery(Status, null))">All categories</a>
+                @foreach (var c in TicketCategories.All)
+                {
+                    <a class="btn btn-sm @(Category == CategoryCode(c.Id) ? "btn-secondary" : "btn-outline-secondary")" href="/employee/tickets@(BuildQuery(Status, CategoryCode(c.Id)))">@c.Label</a>
+                }
+            </div>
+        </div>
+
+        @if (_tickets.Count == 0)
+        {
+            <p class="text-muted">No tickets match this filter.</p>
+        }
+        else
+        {
+            <div class="tx-list mb-3">
+                @foreach (var t in _tickets)
+                {
+                    <a class="tx-row ticket-row" href="/tickets/@t.TicketId">
+                        <span class="tx-main">
+                            <span class="tx-title">
+                                @t.Subject
+                                @if (t.Priority == "High")
+                                {
+                                    <span class="badge text-bg-danger ms-1">High priority</span>
+                                }
+                            </span>
+                            <span class="tx-sub">
+                                @TicketCategories.Label(t.Category) &middot; @Time(t.CreatedAt) &middot;
+                                @(t.AssignedToUsername is null ? "Unassigned" : "Assigned to " + t.AssignedToUsername)
+                            </span>
+                        </span>
+                        <span class="badge @TicketStatuses.BadgeClass(t.Status)">@TicketStatuses.Label(t.Status)</span>
+                    </a>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "status")]
+    private string? Status { get; set; }
+
+    [SupplyParameterFromQuery(Name = "category")]
+    private string? Category { get; set; }
+
+    private static readonly Dictionary<Guid, string> CategoryCodes = new()
+    {
+        [Banking_System.Web.Models.Tickets.TicketCategoryIds.TransactionDispute] = "TransactionDispute",
+        [Banking_System.Web.Models.Tickets.TicketCategoryIds.TransactionIssue] = "TransactionIssue",
+        [Banking_System.Web.Models.Tickets.TicketCategoryIds.Security] = "Security",
+        [Banking_System.Web.Models.Tickets.TicketCategoryIds.General] = "General"
+    };
+
+    private List<TicketSummary> _tickets = [];
+    private bool _sessionExpired;
+    private bool _unavailable;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            var statusId = TicketStatuses.ToId(Status);
+            var categoryId = CategoryCodes.Where(kv => kv.Value == Category).Select(kv => (Guid?)kv.Key).FirstOrDefault();
+
+            var result = await Tickets.GetQueueAsync(token, statusId, categoryId);
+
+            if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            _tickets = result.Data ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private static string CategoryCode(Guid id) => CategoryCodes.TryGetValue(id, out var code) ? code : "";
+
+    private static string BuildQuery(string? status, string? category)
+    {
+        var parts = new[]
+        {
+            status is null ? null : $"status={status}",
+            category is null ? null : $"category={category}"
+        }.Where(p => p is not null);
+
+        return parts.Any() ? "?" + string.Join('&', parts) : "";
+    }
+
+    private static string Time(DateTime utc) =>
+        utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+}

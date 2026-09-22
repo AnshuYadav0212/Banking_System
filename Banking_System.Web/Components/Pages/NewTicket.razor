@@ -1,0 +1,191 @@
+@page "/tickets/new"
+@attribute [Authorize(Roles = "Customer")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Banking
+@using Banking_System.Web.Models.Tickets
+@using Banking_System.Web.Services.Authentication
+@using Banking_System.Web.Services.Banking
+@using Banking_System.Web.Services.Tickets
+@inject TicketApiClient Tickets
+@inject BankingApiClient Banking
+@inject NavigationManager Nav
+
+<PageTitle>Raise a ticket | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page">
+    <h1>Raise a ticket</h1>
+    <p class="text-muted">Tell us what happened. An employee will review it and update the ticket.</p>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a> to raise a ticket.
+        </div>
+    }
+    else
+    {
+        @if (_unavailable)
+        {
+            <div class="alert alert-danger" role="alert">
+                The banking API is unavailable. Try again in a moment.
+            </div>
+        }
+
+        @if (_alert is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_alert</div>
+        }
+
+        <div class="card">
+            <div class="card-body">
+                <EditForm EditContext="_editContext" FormName="new-ticket" OnValidSubmit="SubmitAsync" method="post" novalidate>
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label" for="category">Category</label>
+                        <InputSelect class="form-select" id="category" @bind-Value="Input!.CategoryId">
+                            @foreach (var c in TicketCategories.All)
+                            {
+                                <option value="@c.Id">@c.Label</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="transaction">Related transaction <span class="text-muted">(optional)</span></label>
+                        <InputSelect class="form-select" id="transaction" @bind-Value="_transactionChoice">
+                            <option value="">None</option>
+                            @foreach (var t in _transactions)
+                            {
+                                <option value="@t.TransactionId">@Ref(t.TransactionId) &middot; @Signed(t) &middot; @Time(t.CreatedAt)</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="subject">Subject</label>
+                        <InputText class="form-control" id="subject" @bind-Value="Input!.Subject" maxlength="200" />
+                        <ValidationMessage For="() => Input!.Subject" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="description">Description</label>
+                        <InputTextArea class="form-control" id="description" @bind-Value="Input!.Description" rows="5" maxlength="2000" />
+                        <ValidationMessage For="() => Input!.Description" />
+                        <div class="form-text">Include amounts, dates and anything else that will help us investigate.</div>
+                    </div>
+
+                    <button class="btn btn-primary" type="submit">Submit ticket</button>
+                    <a href="/tickets" class="btn btn-outline-secondary">Cancel</a>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromForm(FormName = "new-ticket")]
+    private CreateTicketInput? Input { get; set; }
+
+    private EditContext _editContext = default!;
+    private string? _token;
+    private string _transactionChoice = "";
+    private List<TransactionSummary> _transactions = [];
+    private string? _alert;
+    private bool _sessionExpired;
+    private bool _unavailable;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new CreateTicketInput();
+        _editContext = new EditContext(Input);
+
+        _token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(_token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        if (Input.TransactionId is { } existing)
+        {
+            _transactionChoice = existing.ToString();
+        }
+
+        try
+        {
+            var history = await Banking.GetHistoryAsync(_token, take: 100);
+
+            if (history.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            _transactions = history.Data ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _alert = null;
+        _unavailable = false;
+
+        Input!.TransactionId = Guid.TryParse(_transactionChoice, out var id) ? id : null;
+
+        ApiResult<CreateTicketResponse> result;
+
+        try
+        {
+            result = await Tickets.CreateAsync(
+                _token!,
+                new CreateTicketRequest(Input.CategoryId, Input.Subject.Trim(), Input.Description.Trim(), Input.TransactionId));
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+            return;
+        }
+
+        if (result.Success && result.Data is { } created)
+        {
+            Nav.NavigateTo($"/tickets/{created.TicketId}");
+            return;
+        }
+
+        if (result.Error == "Unauthorized")
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        _alert = result.Error switch
+        {
+            "TransactionNotFound" => "That transaction could not be found on one of your accounts. Choose another, or leave it blank.",
+            _ => "Some of the details are not valid. Please review the form and try again."
+        };
+    }
+
+    private static string Ref(Guid transactionId) => "SB-" + transactionId.ToString("N")[..8].ToUpperInvariant();
+
+    private static string Money(decimal value) => "₹" + value.ToString("N2", CultureInfo.InvariantCulture);
+
+    private static string Signed(TransactionSummary item) => item.Direction switch
+    {
+        "Sent" => "-" + Money(item.Amount) + " to " + item.CounterpartyAccountNumber,
+        "Received" => "+" + Money(item.Amount) + " from " + item.CounterpartyAccountNumber,
+        _ => Money(item.Amount)
+    };
+
+    private static string Time(DateTime utc) => utc.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+}

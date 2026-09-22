@@ -1,0 +1,252 @@
+@page "/tickets/{TicketId:guid}"
+@attribute [Authorize]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Tickets
+@using Banking_System.Web.Services.Authentication
+@using Banking_System.Web.Services.Tickets
+@inject TicketApiClient Tickets
+
+<PageTitle>Ticket | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page">
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a>.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else if (_notFound)
+    {
+        <div class="alert alert-warning" role="alert">
+            That ticket does not exist, or is not one of yours.
+        </div>
+    }
+    else if (_ticket is { } ticket)
+    {
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+            <div>
+                <div class="text-muted small">Ticket @Ref(TicketId)</div>
+                <h1 class="h3 mb-0">@ticket.Subject</h1>
+            </div>
+            <span class="badge fs-6 @TicketStatuses.BadgeClass(ticket.Status)">@TicketStatuses.Label(ticket.Status)</span>
+        </div>
+
+        @if (_alert is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_alert</div>
+        }
+        @if (_notice is not null)
+        {
+            <div class="alert alert-success" role="alert">@_notice</div>
+        }
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-3 text-muted fw-normal">Category</dt>
+                    <dd class="col-9">@TicketCategories.Label(ticket.Category)</dd>
+
+                    <dt class="col-3 text-muted fw-normal">Priority</dt>
+                    <dd class="col-9">@ticket.Priority</dd>
+
+                    @if (ticket.TransactionId is { } txId)
+                    {
+                        <dt class="col-3 text-muted fw-normal">Transaction</dt>
+                        <dd class="col-9"><code>@Ref(txId)</code></dd>
+                    }
+
+                    <dt class="col-3 text-muted fw-normal">Assigned to</dt>
+                    <dd class="col-9">@(ticket.AssignedToUsername ?? "Unassigned")</dd>
+
+                    <dt class="col-3 text-muted fw-normal">Description</dt>
+                    <dd class="col-9 text-break">@ticket.Description</dd>
+
+                    @if (!string.IsNullOrWhiteSpace(ticket.ResolutionNote))
+                    {
+                        <dt class="col-3 text-muted fw-normal">Resolution note</dt>
+                        <dd class="col-9 text-break">@ticket.ResolutionNote</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        <AuthorizeView Roles="Employee,Admin">
+            <Authorized>
+                <div class="card mb-3 review-card">
+                    <div class="card-body">
+                        <h2 class="h6">Take action</h2>
+
+                        <div class="mb-2">
+                            <label class="form-label" for="note">Note <span class="text-muted">(required to resolve or reject)</span></label>
+                            <textarea class="form-control" id="note" rows="3" maxlength="2000" @bind="_note"></textarea>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            @if (ticket.Status == "Open")
+                            {
+                                <button class="btn btn-outline-primary" disabled="@_busy" @onclick="StartReviewAsync">Start review</button>
+                            }
+                            @if (ticket.Status is "Open" or "UnderReview")
+                            {
+                                <button class="btn btn-success" disabled="@_busy" @onclick="ResolveAsync">Resolve</button>
+                                <button class="btn btn-outline-danger" disabled="@_busy" @onclick="RejectAsync">Reject</button>
+                            }
+                            @if (ticket.Status is "Resolved" or "Rejected")
+                            {
+                                <button class="btn btn-secondary" disabled="@_busy" @onclick="CloseAsync">Close ticket</button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <h2 class="h5">Activity</h2>
+        <div class="tx-list mb-3">
+            @foreach (var e in ticket.Events)
+            {
+                <div class="tx-row ticket-event">
+                    <div class="tx-main">
+                        <span class="tx-title">@EventTitle(e)</span>
+                        <span class="tx-sub">@(e.ActorUsername ?? "system") (@e.ActorRole) &middot; @Time(e.CreatedAt)</span>
+                        @if (!string.IsNullOrWhiteSpace(e.Note))
+                        {
+                            <div class="small mt-1">"@e.Note"</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid TicketId { get; set; }
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private TicketDetail? _ticket;
+    private string? _token;
+    private string _note = "";
+    private bool _busy;
+    private string? _alert;
+    private string? _notice;
+    private bool _sessionExpired;
+    private bool _unavailable;
+    private bool _notFound;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(_token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            var result = await Tickets.GetDetailAsync(_token, TicketId);
+
+            if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            if (!result.Success || result.Data is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _ticket = result.Data;
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private async Task StartReviewAsync() => await RunActionAsync(() => Tickets.StartReviewAsync(_token!, TicketId), "Ticket moved to Under Review.");
+
+    private async Task ResolveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_note))
+        {
+            _alert = "Add a note describing how this was resolved.";
+            return;
+        }
+
+        await RunActionAsync(() => Tickets.ResolveAsync(_token!, TicketId, _note.Trim()), "Ticket resolved.");
+    }
+
+    private async Task RejectAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_note))
+        {
+            _alert = "Add a note explaining why this was rejected.";
+            return;
+        }
+
+        await RunActionAsync(() => Tickets.RejectAsync(_token!, TicketId, _note.Trim()), "Ticket rejected.");
+    }
+
+    private async Task CloseAsync() => await RunActionAsync(() => Tickets.CloseAsync(_token!, TicketId, string.IsNullOrWhiteSpace(_note) ? null : _note.Trim()), "Ticket closed.");
+
+    private async Task RunActionAsync(Func<Task<ApiResult<NoData>>> action, string successMessage)
+    {
+        _alert = null;
+        _notice = null;
+        _busy = true;
+
+        try
+        {
+            var result = await action();
+
+            if (result.Success)
+            {
+                _notice = successMessage;
+                _note = "";
+                await LoadAsync();
+            }
+            else if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+            }
+            else
+            {
+                _alert = "That action could not be completed - the ticket may have just been updated by someone else. Reload and try again.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string EventTitle(TicketEventDto e) => e.FromStatus is null
+        ? "Ticket created"
+        : $"{TicketStatuses.Label(e.FromStatus)} → {TicketStatuses.Label(e.ToStatus)}";
+
+    private static string Ref(Guid id) => "TCK-" + id.ToString("N")[..8].ToUpperInvariant();
+
+    private static string Time(DateTime utc) => utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+}

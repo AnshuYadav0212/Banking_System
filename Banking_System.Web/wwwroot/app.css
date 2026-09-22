@@ -326,3 +326,24 @@ h1:focus {
     background: #f8f9fa;
     border-top: 1px dashed #dee2e6;
 }
+
+/* ---- Tickets: list rows that are plain links or static entries, not <details> ---- */
+.ticket-row,
+.ticket-event {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .65rem 1rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+a.ticket-row:hover {
+    background: #f8f9fa;
+    text-decoration: none;
+    color: inherit;
+}
+
+.ticket-event {
+    align-items: flex-start;
+}
