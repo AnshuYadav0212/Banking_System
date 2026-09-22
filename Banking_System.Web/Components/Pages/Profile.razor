@@ -1,0 +1,217 @@
+@page "/profile"
+@attribute [Authorize(Roles = "Customer")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Profile
+@using Banking_System.Web.Services.Authentication
+@using Banking_System.Web.Services.Profile
+@inject ProfileApiClient ProfileApi
+
+<PageTitle>My Profile | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page">
+    <h1>My Profile</h1>
+    <p class="text-muted">Your personal details, contact information and login security.</p>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a> to see your profile.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else if (_profile is { } profile)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <h2 class="h6">Personal information</h2>
+                <p class="text-muted small">This comes from your bank record. Contact your branch to correct it.</p>
+                <dl class="row mb-0">
+                    <dt class="col-4 col-md-3 text-muted fw-normal">First name</dt>
+                    <dd class="col-8 col-md-9">@profile.FirstName</dd>
+
+                    <dt class="col-4 col-md-3 text-muted fw-normal">Last name</dt>
+                    <dd class="col-8 col-md-9">@profile.LastName</dd>
+
+                    <dt class="col-4 col-md-3 text-muted fw-normal">Date of birth</dt>
+                    <dd class="col-8 col-md-9 mb-0">@profile.DateOfBirth.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h2 class="h6">Contact information</h2>
+                <dl class="row mb-0">
+                    <dt class="col-4 col-md-3 text-muted fw-normal">Username</dt>
+                    <dd class="col-8 col-md-9">@profile.Username</dd>
+
+                    <dt class="col-4 col-md-3 text-muted fw-normal">Email</dt>
+                    <dd class="col-8 col-md-9">@profile.Email</dd>
+
+                    <dt class="col-4 col-md-3 text-muted fw-normal">Phone</dt>
+                    <dd class="col-8 col-md-9 mb-0">@profile.PhoneNumber</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Security</h2>
+
+                @if (_passwordAlert is not null)
+                {
+                    <div class="alert alert-danger py-2" role="alert">@_passwordAlert</div>
+                }
+                @if (_passwordSuccess)
+                {
+                    <div class="alert alert-success py-2" role="alert">Your password has been changed.</div>
+                }
+
+                <EditForm EditContext="_editContext" FormName="change-password" OnValidSubmit="ChangePasswordAsync" method="post" novalidate>
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="currentPassword">Current password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><InputFieldIcon Name="lock" /></span>
+                                <InputText class="form-control" id="currentPassword" type="password"
+                                           @bind-Value="Input!.CurrentPassword" autocomplete="current-password" />
+                            </div>
+                            <ValidationMessage For="() => Input!.CurrentPassword" />
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label" for="newPassword">New password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><InputFieldIcon Name="lock" /></span>
+                                <InputText class="form-control" id="newPassword" type="password"
+                                           @bind-Value="Input!.NewPassword" autocomplete="new-password" />
+                            </div>
+                            <div class="form-text">Use at least 8 characters.</div>
+                            <ValidationMessage For="() => Input!.NewPassword" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label" for="confirmPassword">Confirm new password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><InputFieldIcon Name="lock" /></span>
+                                <InputText class="form-control" id="confirmPassword" type="password"
+                                           @bind-Value="Input!.ConfirmPassword" autocomplete="new-password" />
+                            </div>
+                            <ValidationMessage For="() => Input!.ConfirmPassword" />
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary mt-3" type="submit">Change password</button>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromForm(FormName = "change-password")]
+    private ChangePasswordInput? Input { get; set; }
+
+    private EditContext _editContext = default!;
+    private ValidationMessageStore _serverMessages = default!;
+
+    private string? _token;
+    private MyProfile? _profile;
+    private string? _passwordAlert;
+    private bool _passwordSuccess;
+    private bool _sessionExpired;
+    private bool _unavailable;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new ChangePasswordInput();
+        BuildEditContext();
+
+        _token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(_token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            var result = await ProfileApi.GetProfileAsync(_token);
+
+            if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            _profile = result.Data;
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private void BuildEditContext()
+    {
+        _editContext = new EditContext(Input!);
+        _serverMessages = new ValidationMessageStore(_editContext);
+        _editContext.OnFieldChanged += (_, e) => _serverMessages.Clear(e.FieldIdentifier);
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        _passwordAlert = null;
+        _passwordSuccess = false;
+
+        ApiResult<NoData> result;
+
+        try
+        {
+            result = await ProfileApi.ChangePasswordAsync(
+                _token!, new ChangePasswordRequest(Input!.CurrentPassword, Input.NewPassword));
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+            return;
+        }
+
+        if (result.Success)
+        {
+            _passwordSuccess = true;
+            Input = new ChangePasswordInput();
+            BuildEditContext();
+            return;
+        }
+
+        switch (result.Error)
+        {
+            case "Unauthorized":
+                _sessionExpired = true;
+                break;
+
+            case "IncorrectCurrentPassword":
+                _serverMessages.Add(_editContext.Field(nameof(ChangePasswordInput.CurrentPassword)), "That is not your current password.");
+                break;
+
+            default:
+                _passwordAlert = "Could not change your password. Please review the form and try again.";
+                break;
+        }
+
+        _editContext.NotifyValidationStateChanged();
+    }
+}
