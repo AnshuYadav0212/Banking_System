@@ -217,6 +217,59 @@ h1:focus {
 }
 
 /* ==================================================================
+   Theme toggle - shared by the signed-in top bar (MainLayout) and the
+   login/register/recovery pages (AuthLayout), so it lives here rather
+   than in either layout's scoped stylesheet.
+================================================================== */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    flex: none;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.theme-toggle:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+.theme-icon-moon {
+    display: none;
+}
+
+[data-theme="dark"] .theme-icon-sun {
+    display: none;
+}
+
+[data-theme="dark"] .theme-icon-moon {
+    display: block;
+}
+
+.auth-theme-toggle {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    z-index: 1;
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 960px) {
+    .auth-theme-toggle {
+        top: 2rem;
+        right: 2rem;
+    }
+}
+
+/* ==================================================================
    Forms
 ================================================================== */
 .form-control, .form-select {
@@ -307,6 +360,7 @@ hr {
    is the plain centered card there always was.
 ================================================================== */
 .auth-page {
+    position: relative;
     min-height: 100vh;
     display: flex;
     background: var(--bg);

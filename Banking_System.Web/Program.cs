@@ -3,6 +3,7 @@ using Banking_System.Web.Authentication;
 using Banking_System.Web.Components;
 using Banking_System.Web.Services.Authentication;
 using Banking_System.Web.Services.Banking;
+using Banking_System.Web.Services.Profile;
 using Banking_System.Web.Services.Tickets;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -28,6 +29,11 @@ builder.Services.AddHttpClient<BankingApiClient>(client =>
 });
 
 builder.Services.AddHttpClient<TicketApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https+http://apiservice");
+});
+
+builder.Services.AddHttpClient<ProfileApiClient>(client =>
 {
     client.BaseAddress = new Uri("https+http://apiservice");
 });
