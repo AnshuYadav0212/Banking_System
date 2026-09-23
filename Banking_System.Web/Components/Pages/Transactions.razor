@@ -77,7 +77,7 @@
                                 <span class="tx-icon @IconClass(item.Direction)">@Arrow(item.Direction)</span>
                                 <span class="tx-main">
                                     <span class="tx-title">@Title(item)</span>
-                                    <span class="tx-sub">@item.CounterpartyAccountNumber &middot; @BadgeText(item.Direction)</span>
+                                    <span class="tx-sub">@AccountNumberMasking.Mask(item.CounterpartyAccountNumber) &middot; @BadgeText(item.Direction)</span>
                                 </span>
                                 <span class="tx-amount @IconClass(item.Direction)">@Signed(item)</span>
                             </summary>
@@ -90,7 +90,7 @@
                                     <dd class="col-8 mb-1">@Time(item.CreatedAt)</dd>
 
                                     <dt class="col-4 text-muted fw-normal">Account</dt>
-                                    <dd class="col-8 mb-1">@item.CounterpartyAccountNumber</dd>
+                                    <dd class="col-8 mb-1">@AccountNumberMasking.Mask(item.CounterpartyAccountNumber)</dd>
 
                                     @if (!string.IsNullOrWhiteSpace(item.Comment))
                                     {

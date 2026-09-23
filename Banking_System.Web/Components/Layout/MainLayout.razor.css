@@ -115,6 +115,12 @@ main {
         height: 100vh;
         position: sticky;
         top: 0;
+        flex: none;
+        transition: width .15s ease;
+    }
+
+    :root[data-sidebar="collapsed"] .sidebar {
+        width: 4.5rem;
     }
 
     .top-row {

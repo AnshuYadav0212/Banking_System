@@ -18,6 +18,15 @@
             } catch {
                 document.documentElement.setAttribute("data-theme", "light");
             }
+
+            // Same idea for the sidebar's collapsed/expanded state, kept in
+            // sync afterwards by wwwroot/js/layout.js.
+            try {
+                var sidebar = localStorage.getItem("sidebarCollapsed");
+                document.documentElement.setAttribute("data-sidebar", sidebar === "collapsed" ? "collapsed" : "expanded");
+            } catch {
+                document.documentElement.setAttribute("data-sidebar", "expanded");
+            }
         })();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -36,6 +45,7 @@
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["js/username-check.js"]"></script>
     <script src="@Assets["js/theme.js"]"></script>
+    <script src="@Assets["js/layout.js"]"></script>
 </body>
 
 </html>

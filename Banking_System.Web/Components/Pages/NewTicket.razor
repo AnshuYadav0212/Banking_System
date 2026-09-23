@@ -182,8 +182,8 @@
 
     private static string Signed(TransactionSummary item) => item.Direction switch
     {
-        "Sent" => "-" + Money(item.Amount) + " to " + item.CounterpartyAccountNumber,
-        "Received" => "+" + Money(item.Amount) + " from " + item.CounterpartyAccountNumber,
+        "Sent" => "-" + Money(item.Amount) + " to " + AccountNumberMasking.Mask(item.CounterpartyAccountNumber),
+        "Received" => "+" + Money(item.Amount) + " from " + AccountNumberMasking.Mask(item.CounterpartyAccountNumber),
         _ => Money(item.Amount)
     };
 

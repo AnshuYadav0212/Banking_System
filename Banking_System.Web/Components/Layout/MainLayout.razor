@@ -9,13 +9,64 @@
         <div class="top-row px-4">
             <AuthorizeView>
                 <Authorized>
-                    <span class="topbar-user">
-                        <span class="topbar-user-avatar">@Initial(context.User.Identity?.Name)</span>
-                        <span class="topbar-user-info">
-                            <span class="topbar-user-name">@(context.User.Identity?.Name ?? "Signed in")</span>
-                            <span class="topbar-user-role">@(context.User.IsInRole("Admin") ? "Admin" : context.User.IsInRole("Employee") ? "Employee" : "Customer")</span>
-                        </span>
-                    </span>
+                    <details class="user-menu">
+                        <summary class="topbar-user">
+                            <span class="topbar-user-avatar">@Initial(context.User.Identity?.Name)</span>
+                            <span class="topbar-user-info">
+                                <span class="topbar-user-name">@(context.User.Identity?.Name ?? "Signed in")</span>
+                                <span class="topbar-user-role">@RoleLabel(context.User)</span>
+                            </span>
+                            <svg class="topbar-user-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                            </svg>
+                        </summary>
+
+                        <div class="user-menu-panel">
+                            <div class="user-menu-header">
+                                <span class="topbar-user-avatar">@Initial(context.User.Identity?.Name)</span>
+                                <div class="user-menu-header-info">
+                                    <span class="user-menu-name">@(context.User.Identity?.Name ?? "Signed in")</span>
+                                    <span class="user-menu-role-badge">@RoleLabel(context.User)</span>
+                                </div>
+                            </div>
+
+                            <AuthorizeView Roles="Customer" Context="customerContext">
+                                <Authorized>
+                                    <a class="user-menu-item" href="/profile">
+                                        <NavIcon Path="M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z" />
+                                        My Profile
+                                    </a>
+                                    <a class="user-menu-item" href="/account">
+                                        <NavIcon Path="M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v1H3V4Zm-1 3h16v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7Zm3 6a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2H5Z" />
+                                        My Account
+                                    </a>
+                                    <a class="user-menu-item" href="/tickets">
+                                        <NavIcon Path="M2.5 5.5A1.5 1.5 0 0 1 4 4h12a1.5 1.5 0 0 1 1.5 1.5v1.75a1.75 1.75 0 0 0 0 3.5v1.75A1.5 1.5 0 0 1 16 14.5H4A1.5 1.5 0 0 1 2.5 13v-1.75a1.75 1.75 0 0 0 0-3.5V5.5Z" />
+                                        Support Tickets
+                                    </a>
+                                </Authorized>
+                            </AuthorizeView>
+
+                            <AuthorizeView Roles="Employee,Admin" Context="staffContext">
+                                <Authorized>
+                                    <a class="user-menu-item" href="/employee/tickets">
+                                        <NavIcon Path="M2.5 5.5A1.5 1.5 0 0 1 4 4h12a1.5 1.5 0 0 1 1.5 1.5v1.75a1.75 1.75 0 0 0 0 3.5v1.75A1.5 1.5 0 0 1 16 14.5H4A1.5 1.5 0 0 1 2.5 13v-1.75a1.75 1.75 0 0 0 0-3.5V5.5Z" />
+                                        Ticket Queue
+                                    </a>
+                                </Authorized>
+                            </AuthorizeView>
+
+                            <div class="user-menu-divider"></div>
+
+                            <form method="post" action="/auth/logout">
+                                <AntiforgeryToken />
+                                <button type="submit" class="user-menu-item user-menu-item-danger">
+                                    <NavIcon Path="M7 3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h4a1 1 0 1 0 0-2H8V5h3a1 1 0 1 0 0-2H7Zm7.293 3.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414-1.414L15.586 11H9a1 1 0 1 1 0-2h6.586l-1.293-1.293a1 1 0 0 1 0-1.414Z" />
+                                    Logout
+                                </button>
+                            </form>
+                        </div>
+                    </details>
                 </Authorized>
             </AuthorizeView>
 
@@ -46,4 +97,7 @@
 @code {
     private static string Initial(string? name) =>
         string.IsNullOrWhiteSpace(name) ? "?" : char.ToUpperInvariant(name.TrimStart()[0]).ToString();
+
+    private static string RoleLabel(System.Security.Claims.ClaimsPrincipal user) =>
+        user.IsInRole("Admin") ? "Admin" : user.IsInRole("Employee") ? "Employee" : "Customer";
 }
