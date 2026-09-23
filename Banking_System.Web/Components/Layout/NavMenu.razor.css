@@ -43,12 +43,6 @@
     color: #fff;
 }
 
-.nav-icon {
-    flex: none;
-    margin-right: .75rem;
-    opacity: .85;
-}
-
 .nav-section {
     margin: 1.1rem 1.25rem .4rem;
     font-size: .68rem;
@@ -71,7 +65,7 @@
         padding-bottom: 1rem;
     }
 
-    .nav-item ::deep a, .nav-item ::deep .logout-link {
+    .nav-item ::deep a {
         color: rgba(255, 255, 255, 0.78);
         border-radius: .6rem;
         height: 2.85rem;
@@ -89,9 +83,77 @@
     box-shadow: inset 3px 0 0 0 #fff;
 }
 
-.nav-item ::deep a:hover, .nav-item ::deep .logout-link:hover {
+.nav-item ::deep a:hover {
     background-color: rgba(255, 255, 255, 0.1);
     color: white;
+}
+
+/* ---- Sidebar collapse toggle (desktop only - the mobile sidebar already
+   collapses to an overlay via the hamburger checkbox above). ---- */
+.sidebar-toggle {
+    display: none;
+}
+
+@media (min-width: 641px) {
+    .sidebar-toggle {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        gap: .75rem;
+        padding: .75rem 1.25rem;
+        border: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        background: none;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: .8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color .12s ease, color .12s ease;
+    }
+
+    .sidebar-toggle:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+        color: #fff;
+    }
+}
+
+.sidebar-toggle-icon {
+    flex: none;
+}
+
+.sidebar-toggle-icon-expand {
+    display: none;
+}
+
+:root[data-sidebar="collapsed"] .sidebar-toggle-icon-collapse {
+    display: none;
+}
+
+:root[data-sidebar="collapsed"] .sidebar-toggle-icon-expand {
+    display: block;
+}
+
+/* ---- Collapsed state: icons only, centered, with a tooltip via title=. ---- */
+@media (min-width: 641px) {
+    :root[data-sidebar="collapsed"] .nav-label,
+    :root[data-sidebar="collapsed"] .nav-section {
+        display: none;
+    }
+
+    :root[data-sidebar="collapsed"] .sidebar-toggle {
+        justify-content: center;
+        padding: .75rem;
+    }
+
+    :root[data-sidebar="collapsed"] .nav-item ::deep a {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    :root[data-sidebar="collapsed"] .nav-icon {
+        margin-right: 0;
+    }
 }
 
 .nav-scrollable {

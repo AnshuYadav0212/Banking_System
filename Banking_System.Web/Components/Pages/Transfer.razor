@@ -40,7 +40,7 @@
                     <div class="small mt-1">
                         Reference <code>@Ref(_success.TransactionId)</code> &middot;
                         @Time(_success.CreatedAt) &middot;
-                        new balance of @_success.FromAccountNumber: @Money(_success.NewBalance)
+                        new balance of @AccountNumberMasking.Mask(_success.FromAccountNumber): @Money(_success.NewBalance)
                     </div>
                 </div>
             </div>
@@ -80,7 +80,7 @@
                                            checked="@(DetailsInput.FromAccountId == account.AccountId)"
                                            disabled="@(!account.IsActive)" />
                                     <span class="account-card">
-                                        <span class="account-card-number">@account.AccountNumber</span>
+                                        <span class="account-card-number">@AccountNumberMasking.Mask(account.AccountNumber)</span>
                                         <span class="account-card-balance">Available balance @Money(account.AvailableBalance)</span>
                                         @if (!account.IsActive)
                                         {
@@ -131,12 +131,12 @@
                     {
                         <dl class="row mb-1">
                             <dt class="col-4 text-muted fw-normal">From</dt>
-                            <dd class="col-8 mb-2">@review.FromAccountNumber</dd>
+                            <dd class="col-8 mb-2">@AccountNumberMasking.Mask(review.FromAccountNumber)</dd>
 
                             <dt class="col-4 text-muted fw-normal">To</dt>
                             <dd class="col-8 mb-2">
                                 <div>@review.Recipient.RecipientName</div>
-                                <div class="text-muted small">@review.Recipient.AccountNumber</div>
+                                <div class="text-muted small">@AccountNumberMasking.Mask(review.Recipient.AccountNumber)</div>
                             </dd>
 
                             <dt class="col-4 text-muted fw-normal">Amount</dt>
