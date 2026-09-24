@@ -301,7 +301,7 @@
             return;
         }
 
-        if (recipient.AccountNumber == fromAccount.AccountNumber)
+        if (recipient.AccountId == fromAccount.AccountId)
         {
             _serverMessages.Add(
                 _detailsContext.Field(nameof(TransferInput.ToAccountNumber)),
