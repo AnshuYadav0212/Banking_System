@@ -14,3 +14,6 @@ public sealed record RegisterRequest(
 
 /// <summary>DevResetLink is only present when the API runs in Development (no mail server).</summary>
 public sealed record ForgotPasswordResponse(string? DevResetLink);
+
+/// <summary>Self-service staff registration; the API only accepts this for the staff email domain.</summary>
+public sealed record StaffRegisterRequest(string Email, string Username, string Password);

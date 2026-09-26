@@ -71,6 +71,38 @@ public sealed class RegisterInput : IValidatableObject
         Password);
 }
 
+/// <summary>Self-service registration for staff, gated by email domain rather than a bank record.</summary>
+public sealed class StaffRegisterInput
+{
+    public const string StaffEmailDomain = "admin.com";
+
+    [Required(ErrorMessage = "Enter your work email address.")]
+    [EmailAddress(ErrorMessage = "Enter a valid email address.")]
+    [RegularExpression(@"^[^@\s]+@" + StaffEmailDomain + "$",
+        ErrorMessage = "Staff registration needs an email address ending in @" + StaffEmailDomain + ".")]
+    [StringLength(256)]
+    public string Email { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Choose a username.")]
+    [RegularExpression(RegisterInput.UsernamePattern,
+        ErrorMessage = "Use 3-30 letters, numbers or underscores.")]
+    public string Username { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Password is required.")]
+    [MinLength(8, ErrorMessage = "Use at least 8 characters.")]
+    [MaxLength(128)]
+    public string Password { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Confirm your password.")]
+    [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+    public string ConfirmPassword { get; set; } = string.Empty;
+
+    public StaffRegisterRequest ToRequest() => new(
+        Email.Trim(),
+        Username.Trim(),
+        Password);
+}
+
 public sealed class ForgotUsernameInput
 {
     [Required(ErrorMessage = "Enter your email address or phone number.")]

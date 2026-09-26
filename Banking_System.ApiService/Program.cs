@@ -91,6 +91,7 @@ else
     builder.Services.AddScoped<INotificationSender, LoggingNotificationSender>();
 }
 builder.Services.AddScoped<RegistrationService>();
+builder.Services.AddScoped<EmployeeRegistrationService>();
 builder.Services.AddScoped<AccountRecoveryService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
