@@ -74,6 +74,12 @@ public sealed class AuthApiClient
         CancellationToken cancellationToken = default) =>
         PostAsync<NoData>("/api/registration", request, cancellationToken);
 
+    /// <summary>Creates a staff login; the API only accepts this for the staff email domain.</summary>
+    public Task<ApiResult<NoData>> RegisterEmployeeAsync(
+        StaffRegisterRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<NoData>("/api/registration/employee", request, cancellationToken);
+
     // Account recovery ---------------------------------------------------
 
     public Task<ApiResult<NoData>> ForgotUsernameAsync(
