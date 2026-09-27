@@ -1,0 +1,100 @@
+@page "/about"
+
+<PageTitle>About | SecureBank</PageTitle>
+
+<div class="about-hero">
+    <span class="about-badge">About SecureBank</span>
+    <h1>Online banking, built around trust.</h1>
+    <p class="about-lead">
+        SecureBank gives you a clear, secure way to manage your money - from everyday
+        transfers to tracking every transaction and getting help the moment something
+        needs attention.
+    </p>
+</div>
+
+<section class="about-section">
+    <h2>What you can do here</h2>
+    <div class="about-grid">
+        <div class="about-item">
+            <span class="about-item-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v1H3V4Zm-1 3h16v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7Zm3 6a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2H5Z" />
+                </svg>
+            </span>
+            <div>
+                <h3>Accounts, at a glance</h3>
+                <p>See every account you hold, its balance and status, in one place.</p>
+            </div>
+        </div>
+
+        <div class="about-item">
+            <span class="about-item-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M3.478 2.404a.75.75 0 0 0-.926.94l2.432 6.958H12.5a.75.75 0 0 1 0 1.5H4.984l-2.432 6.958a.75.75 0 0 0 .926.94 49.53 49.53 0 0 0 15.445-7.257.75.75 0 0 0 0-1.286A49.53 49.53 0 0 0 3.478 2.404Z" />
+                </svg>
+            </span>
+            <div>
+                <h3>Transfers</h3>
+                <p>Move money between your own accounts or send it to anyone at SecureBank, with the recipient's name confirmed before you send.</p>
+            </div>
+        </div>
+
+        <div class="about-item">
+            <span class="about-item-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 1.5 1.5h1a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 16.5 2h-1ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9A1.5 1.5 0 0 0 9.5 18h1a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 10.5 6h-1ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5A1.5 1.5 0 0 0 3.5 18h1A1.5 1.5 0 0 0 6 16.5v-5A1.5 1.5 0 0 0 4.5 10h-1Z" />
+                </svg>
+            </span>
+            <div>
+                <h3>Transaction history</h3>
+                <p>Every transfer you've sent or received, searchable by name and date.</p>
+            </div>
+        </div>
+
+        <div class="about-item">
+            <span class="about-item-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M2.5 5.5A1.5 1.5 0 0 1 4 4h12a1.5 1.5 0 0 1 1.5 1.5v1.75a1.75 1.75 0 0 0 0 3.5v1.75A1.5 1.5 0 0 1 16 14.5H4A1.5 1.5 0 0 1 2.5 13v-1.75a1.75 1.75 0 0 0 0-3.5V5.5Z" />
+                </svg>
+            </span>
+            <div>
+                <h3>Support tickets</h3>
+                <p>Raise a ticket about any transaction - wrong account, a failed transfer, anything - and follow it through to resolution.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="about-section">
+    <h2>How we protect your account</h2>
+    <ul class="about-security-list">
+        <li>Your password is hashed before it's ever stored - SecureBank itself never has access to it in plain text.</li>
+        <li>Account numbers are shown in masked form everywhere except when you're the one typing them in.</li>
+        <li>Sign-in is protected by short-lived access tokens, so an old session can't be replayed indefinitely.</li>
+        <li>Looking up a recipient is rate-limited, so account numbers can't be probed at scale.</li>
+        <li>Every transfer is guarded against being submitted twice - a refresh or a double click never moves money more than once.</li>
+    </ul>
+</section>
+
+<section class="about-section about-cta">
+    <h2>Need a hand?</h2>
+    <p>If something about your account or a transaction doesn't look right, our support team is one ticket away.</p>
+
+    <AuthorizeView>
+        <Authorized Context="authContext">
+            <AuthorizeView Roles="Customer">
+                <Authorized Context="customerContext">
+                    <a class="btn btn-primary" href="/tickets/new">Raise a support ticket</a>
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView Roles="Employee,Admin">
+                <Authorized Context="staffContext">
+                    <a class="btn btn-primary" href="/employee/tickets">Go to the ticket queue</a>
+                </Authorized>
+            </AuthorizeView>
+        </Authorized>
+        <NotAuthorized>
+            <a class="btn btn-primary" href="/login">Sign in to raise a support ticket</a>
+        </NotAuthorized>
+    </AuthorizeView>
+</section>
