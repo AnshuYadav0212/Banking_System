@@ -54,14 +54,51 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label" for="transaction">Related transaction <span class="text-muted">(optional)</span></label>
-                        <InputSelect class="form-select" id="transaction" @bind-Value="_transactionChoice">
-                            <option value="">None</option>
-                            @foreach (var t in _transactions)
-                            {
-                                <option value="@t.TransactionId">@Ref(t.TransactionId) &middot; @Signed(t) &middot; @Time(t.CreatedAt)</option>
-                            }
-                        </InputSelect>
+                        <label class="form-label">Related transaction <span class="text-muted">(optional)</span></label>
+
+                        <details class="tx-picker" open="@(!string.IsNullOrEmpty(TransactionChoice))">
+                            <summary class="tx-picker-summary">
+                                @if (SelectedTransaction is { } selected)
+                                {
+                                    <span>@selected.CounterpartyName &middot; @Time(selected.CreatedAt) &middot; @Ref(selected.TransactionId)</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">None selected - tap to search</span>
+                                }
+                            </summary>
+
+                            <div class="tx-picker-panel">
+                                <input type="search" class="form-control mb-2"
+                                       placeholder="Search by name, date, time or reference..."
+                                       autocomplete="off" data-tx-search-input />
+
+                                <InputRadioGroup @bind-Value="TransactionChoice">
+                                    <div class="tx-picker-list">
+                                        <label class="tx-pick-row">
+                                            <InputRadio Value="@string.Empty" class="tx-pick-radio" />
+                                            <span class="tx-main">
+                                                <span class="tx-title">None</span>
+                                                <span class="tx-sub">Not related to a specific transaction</span>
+                                            </span>
+                                        </label>
+                                        @foreach (var t in _transactions)
+                                        {
+                                            <label class="tx-pick-row" data-tx-search="@SearchText(t)">
+                                                <InputRadio Value="@t.TransactionId.ToString()" class="tx-pick-radio" />
+                                                <span class="tx-main">
+                                                    <span class="tx-title">@t.CounterpartyName</span>
+                                                    <span class="tx-sub">@Time(t.CreatedAt) &middot; @Ref(t.TransactionId)</span>
+                                                </span>
+                                                <span class="tx-amount @IconClass(t.Direction)">@Signed(t)</span>
+                                            </label>
+                                        }
+                                    </div>
+                                </InputRadioGroup>
+
+                                <p class="tx-pick-empty text-muted small mb-0 mt-2" hidden>No matching transactions.</p>
+                            </div>
+                        </details>
                     </div>
 
                     <div class="mb-3">
@@ -92,9 +129,15 @@
     [SupplyParameterFromForm(FormName = "new-ticket")]
     private CreateTicketInput? Input { get; set; }
 
+    // A plain field bound with @bind-Value is never restored from the POST in
+    // static SSR - only [SupplyParameterFromForm] properties are. This has to be
+    // one of those (like Input above), not a private field, or the selected
+    // transaction is silently dropped on submit.
+    [SupplyParameterFromForm(FormName = "new-ticket")]
+    private string? TransactionChoice { get; set; }
+
     private EditContext _editContext = default!;
     private string? _token;
-    private string _transactionChoice = "";
     private List<TransactionSummary> _transactions = [];
     private string? _alert;
     private bool _sessionExpired;
@@ -103,6 +146,7 @@
     protected override async Task OnInitializedAsync()
     {
         Input ??= new CreateTicketInput();
+        TransactionChoice ??= Input.TransactionId?.ToString() ?? "";
         _editContext = new EditContext(Input);
 
         _token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
@@ -111,11 +155,6 @@
         {
             _sessionExpired = true;
             return;
-        }
-
-        if (Input.TransactionId is { } existing)
-        {
-            _transactionChoice = existing.ToString();
         }
 
         try
@@ -141,7 +180,7 @@
         _alert = null;
         _unavailable = false;
 
-        Input!.TransactionId = Guid.TryParse(_transactionChoice, out var id) ? id : null;
+        Input!.TransactionId = Guid.TryParse(TransactionChoice, out var id) ? id : null;
 
         ApiResult<CreateTicketResponse> result;
 
@@ -176,16 +215,31 @@
         };
     }
 
+    private TransactionSummary? SelectedTransaction =>
+        _transactions.FirstOrDefault(t => t.TransactionId.ToString() == TransactionChoice);
+
+    // What the search box matches against: name, date, time, then reference -
+    // one lowercase string is enough since "contains" already matches any of them.
+    private string SearchText(TransactionSummary t) =>
+        (t.CounterpartyName + " " + Time(t.CreatedAt) + " " + Ref(t.TransactionId)).ToLowerInvariant();
+
     private static string Ref(Guid transactionId) => "SB-" + transactionId.ToString("N")[..8].ToUpperInvariant();
 
     private static string Money(decimal value) => "₹" + value.ToString("N2", CultureInfo.InvariantCulture);
 
     private static string Signed(TransactionSummary item) => item.Direction switch
     {
-        "Sent" => "-" + Money(item.Amount) + " to " + item.CounterpartyAccountNumber,
-        "Received" => "+" + Money(item.Amount) + " from " + item.CounterpartyAccountNumber,
+        "Sent" => "-" + Money(item.Amount),
+        "Received" => "+" + Money(item.Amount),
         _ => Money(item.Amount)
     };
 
-    private static string Time(DateTime utc) => utc.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+    private static string IconClass(string direction) => direction switch
+    {
+        "Sent" => "tx-out",
+        "Received" => "tx-in",
+        _ => "tx-own"
+    };
+
+    private static string Time(DateTime utc) => utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
 }
