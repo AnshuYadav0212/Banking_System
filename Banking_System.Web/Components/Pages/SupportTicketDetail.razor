@@ -67,7 +67,16 @@
                     <dd class="col-9">@(ticket.AssignedToUsername ?? "Unassigned")</dd>
 
                     <dt class="col-3 text-muted fw-normal">Description</dt>
-                    <dd class="col-9 text-break">@ticket.Description</dd>
+                    <dd class="col-9 text-break">
+                        @if (string.IsNullOrWhiteSpace(ticket.Description))
+                        {
+                            <span class="text-muted">No description provided.</span>
+                        }
+                        else
+                        {
+                            @ticket.Description
+                        }
+                    </dd>
 
                     @if (!string.IsNullOrWhiteSpace(ticket.ResolutionNote))
                     {

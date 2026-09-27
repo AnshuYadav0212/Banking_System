@@ -6,7 +6,7 @@ namespace Banking_System.ApiService.DTOs;
 public sealed record CreateTicketRequest(
     Guid CategoryId,
     [Required, StringLength(200, MinimumLength = 4)] string Subject,
-    [Required, StringLength(2000, MinimumLength = 10)] string Description,
+    [StringLength(2000)] string? Description,
     Guid? TransactionId);
 
 public sealed record TicketActionRequest(
