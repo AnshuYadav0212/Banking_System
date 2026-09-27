@@ -27,9 +27,9 @@ public sealed record TicketActionResult(TicketActionStatus Status);
 /// <summary>
 /// Support tickets: a customer raises one (optionally against one of their own
 /// transactions), and an employee or admin works it through a small, fixed state
-/// machine: Open -&gt; UnderReview -&gt; Resolved/Rejected -&gt; Closed. Every step is
-/// recorded as a <see cref="TicketEvent"/>, which is also the whole activity
-/// trail shown to both the customer and the employee.
+/// machine: Open -&gt; UnderReview -&gt; Rejected/Closed. Every step is recorded as a
+/// <see cref="TicketEvent"/>, which is also the whole activity trail shown to
+/// both the customer and the employee.
 /// </summary>
 public sealed class SupportTicketService
 {
@@ -172,14 +172,13 @@ public sealed class SupportTicketService
     public Task<TicketActionResult> StartReviewAsync(Guid employeeUserId, Guid ticketId, CancellationToken cancellationToken) =>
         TransitionAsync(ticketId, [TicketStatusIds.Open], TicketStatusIds.UnderReview, employeeUserId, note: null, assign: true, resolutionNote: null, cancellationToken);
 
+    // Resolving a ticket closes it directly - there is no separate "Resolved"
+    // status to move out of afterwards.
     public Task<TicketActionResult> ResolveAsync(Guid employeeUserId, Guid ticketId, string note, CancellationToken cancellationToken) =>
-        TransitionAsync(ticketId, [TicketStatusIds.Open, TicketStatusIds.UnderReview], TicketStatusIds.Resolved, employeeUserId, note, assign: true, resolutionNote: note, cancellationToken);
+        TransitionAsync(ticketId, [TicketStatusIds.Open, TicketStatusIds.UnderReview], TicketStatusIds.Closed, employeeUserId, note, assign: true, resolutionNote: note, cancellationToken);
 
     public Task<TicketActionResult> RejectAsync(Guid employeeUserId, Guid ticketId, string note, CancellationToken cancellationToken) =>
         TransitionAsync(ticketId, [TicketStatusIds.Open, TicketStatusIds.UnderReview], TicketStatusIds.Rejected, employeeUserId, note, assign: true, resolutionNote: note, cancellationToken);
-
-    public Task<TicketActionResult> CloseAsync(Guid employeeUserId, Guid ticketId, string? note, CancellationToken cancellationToken) =>
-        TransitionAsync(ticketId, [TicketStatusIds.Resolved, TicketStatusIds.Rejected], TicketStatusIds.Closed, employeeUserId, note, assign: false, resolutionNote: null, cancellationToken);
 
     private async Task<TicketActionResult> TransitionAsync(
         Guid ticketId,

@@ -54,10 +54,6 @@ public sealed class TicketApiClient
         string accessToken, Guid ticketId, string note, CancellationToken cancellationToken = default) =>
         SendAsync<NoData>(HttpMethod.Post, $"/api/tickets/{ticketId}/reject", new TicketActionRequest(note), accessToken, cancellationToken);
 
-    public Task<ApiResult<NoData>> CloseAsync(
-        string accessToken, Guid ticketId, string? note, CancellationToken cancellationToken = default) =>
-        SendAsync<NoData>(HttpMethod.Post, $"/api/tickets/{ticketId}/close", new TicketActionRequest(note), accessToken, cancellationToken);
-
     private static string StatusQuery(Guid? status) => status is { } s ? $"?status={s}" : "";
 
     private async Task<ApiResult<T>> SendAsync<T>(

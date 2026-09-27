@@ -8,10 +8,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace Banking_System.Web.Authentication;
 
 /// <summary>
-/// The employee actions on a ticket (start review / resolve / reject / close) are
-/// plain HTML form posts, not Blazor event handlers - the ticket detail page is
-/// static server-rendered (no @@rendermode), so a bare @@onclick would never run.
-/// This mirrors how /auth/logout already works from the nav menu.
+/// The employee actions on a ticket (start review / resolve / reject) are plain
+/// HTML form posts, not Blazor event handlers - the ticket detail page is static
+/// server-rendered (no @@rendermode), so a bare @@onclick would never run. This
+/// mirrors how /auth/logout already works from the nav menu.
 /// </summary>
 public static class TicketEndpoints
 {
@@ -22,7 +22,6 @@ public static class TicketEndpoints
         endpoints.MapPost("/tickets/{ticketId:guid}/start-review", (Delegate)StartReviewAsync).RequireAuthorization(staff);
         endpoints.MapPost("/tickets/{ticketId:guid}/resolve", (Delegate)ResolveAsync).RequireAuthorization(staff);
         endpoints.MapPost("/tickets/{ticketId:guid}/reject", (Delegate)RejectAsync).RequireAuthorization(staff);
-        endpoints.MapPost("/tickets/{ticketId:guid}/close", (Delegate)CloseAsync).RequireAuthorization(staff);
 
         return endpoints;
     }
@@ -52,10 +51,6 @@ public static class TicketEndpoints
 
         return RunAsync(ticketId, httpContext, antiforgery, (token, ct) => tickets.RejectAsync(token, ticketId, note.Trim(), ct), cancellationToken);
     }
-
-    private static Task<IResult> CloseAsync(
-        Guid ticketId, [FromForm] string? note, TicketApiClient tickets, HttpContext httpContext, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
-        RunAsync(ticketId, httpContext, antiforgery, (token, ct) => tickets.CloseAsync(token, ticketId, string.IsNullOrWhiteSpace(note) ? null : note.Trim(), ct), cancellationToken);
 
     private static async Task<IResult> RunAsync(
         Guid ticketId,

@@ -729,3 +729,15 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_OtpChallenges_Throttl
         ON dbo.OtpChallenges (PurposeId, CreatedAt)
         INCLUDE (Email, PhoneNumber, UserId);
 GO
+
+/* ==================================================================
+   The "Resolved" ticket status is retired: resolving a ticket now closes
+   it directly. Any ticket left over in that status is moved to Closed.
+   The TicketStatuses row itself is kept (not deleted) so existing
+   TicketEvents rows that recorded a transition to/from it keep working.
+================================================================== */
+UPDATE dbo.SupportTickets
+SET StatusId = '40000000-0000-0000-0000-000000000005', -- Closed
+    UpdatedAt = SYSUTCDATETIME()
+WHERE StatusId = '40000000-0000-0000-0000-000000000003'; -- Resolved
+GO
