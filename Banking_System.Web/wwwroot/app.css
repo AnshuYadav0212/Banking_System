@@ -270,6 +270,118 @@ h1:focus {
 }
 
 /* ==================================================================
+   Nav icon - shared by the sidebar (NavMenu) and the account dropdown
+   (MainLayout), both of which render <NavIcon> children.
+================================================================== */
+.nav-icon {
+    flex: none;
+    margin-right: .75rem;
+    opacity: .85;
+}
+
+/* ==================================================================
+   Account dropdown menu (top bar)
+================================================================== */
+.user-menu {
+    position: relative;
+}
+
+.user-menu > summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.user-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.topbar-user-chevron {
+    color: var(--text-muted);
+    flex: none;
+    transition: transform .15s ease;
+}
+
+.user-menu[open] .topbar-user-chevron {
+    transform: rotate(180deg);
+}
+
+.user-menu-panel {
+    position: absolute;
+    top: calc(100% + .6rem);
+    right: 0;
+    width: 15.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: .5rem;
+    z-index: 20;
+}
+
+.user-menu-header {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .4rem .5rem .75rem;
+}
+
+.user-menu-header-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.user-menu-name {
+    font-weight: 600;
+    font-size: .85rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-menu-role-badge {
+    font-size: .72rem;
+    color: var(--text-muted);
+}
+
+.user-menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: .5rem .6rem;
+    border: 0;
+    background: none;
+    border-radius: .5rem;
+    font-size: .85rem;
+    font-weight: 500;
+    color: var(--text);
+    text-decoration: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.user-menu-item:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.user-menu-item-danger {
+    color: var(--danger);
+}
+
+.user-menu-item-danger:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+.user-menu-divider {
+    height: 1px;
+    background: var(--border);
+    margin: .4rem .2rem;
+}
+
+/* ==================================================================
    Forms
 ================================================================== */
 .form-control, .form-select {

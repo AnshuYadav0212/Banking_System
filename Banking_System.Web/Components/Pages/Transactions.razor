@@ -28,9 +28,12 @@
     else
     {
         <form method="get" class="row g-2 align-items-center mb-3 tx-filters">
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-4">
                 <input class="form-control" type="search" name="q" value="@Q"
-                       placeholder="Search by account number or name..." autocomplete="off" />
+                       placeholder="Search by name..." autocomplete="off" />
+            </div>
+            <div class="col-12 col-md-auto">
+                <input class="form-control" type="date" name="date" value="@DateFilter" />
             </div>
             <div class="col-12 col-md-auto">
                 <div class="btn-group" role="group" aria-label="Filter by direction">
@@ -49,7 +52,7 @@
             </div>
             <div class="col-12 col-md-auto">
                 <button class="btn btn-primary btn-sm" type="submit">Search</button>
-                @if (!string.IsNullOrWhiteSpace(Q) || IsSent || IsReceived)
+                @if (!string.IsNullOrWhiteSpace(Q) || !string.IsNullOrWhiteSpace(DateFilter) || IsSent || IsReceived)
                 {
                     <a href="/transactions" class="btn btn-link btn-sm">Clear</a>
                 }
@@ -77,7 +80,7 @@
                                 <span class="tx-icon @IconClass(item.Direction)">@Arrow(item.Direction)</span>
                                 <span class="tx-main">
                                     <span class="tx-title">@Title(item)</span>
-                                    <span class="tx-sub">@item.CounterpartyAccountNumber &middot; @BadgeText(item.Direction)</span>
+                                    <span class="tx-sub">@AccountNumberMasking.Mask(item.CounterpartyAccountNumber) &middot; @BadgeText(item.Direction)</span>
                                 </span>
                                 <span class="tx-amount @IconClass(item.Direction)">@Signed(item)</span>
                             </summary>
@@ -90,7 +93,7 @@
                                     <dd class="col-8 mb-1">@Time(item.CreatedAt)</dd>
 
                                     <dt class="col-4 text-muted fw-normal">Account</dt>
-                                    <dd class="col-8 mb-1">@item.CounterpartyAccountNumber</dd>
+                                    <dd class="col-8 mb-1">@AccountNumberMasking.Mask(item.CounterpartyAccountNumber)</dd>
 
                                     @if (!string.IsNullOrWhiteSpace(item.Comment))
                                     {
@@ -121,6 +124,9 @@
 
     [SupplyParameterFromQuery(Name = "dir")]
     private string? Dir { get; set; }
+
+    [SupplyParameterFromQuery(Name = "date")]
+    private string? DateFilter { get; set; }
 
     private List<TransactionSummary> _history = [];
     private string? _token;
@@ -179,9 +185,12 @@
 
         if (!string.IsNullOrEmpty(term))
         {
-            query = query.Where(h =>
-                h.CounterpartyAccountNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
-                || h.CounterpartyName.Contains(term, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(h => h.CounterpartyName.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (DateTime.TryParse(DateFilter, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        {
+            query = query.Where(h => h.CreatedAt.Date == date.Date);
         }
 
         return query;

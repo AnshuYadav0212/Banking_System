@@ -62,5 +62,6 @@ public sealed record TransactionSummary(
 
 /// <summary>The account holder's name for an account number, shown before a transfer is sent.</summary>
 public sealed record RecipientVerification(
+    Guid AccountId,
     string AccountNumber,
     string RecipientName);

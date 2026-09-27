@@ -1,4 +1,5 @@
 using Banking_System.ApiService.DTOs;
+using Banking_System.ApiService.Formatting;
 using Banking_System.ApiService.Models;
 using Banking_System.ApiService.Repositories;
 
@@ -72,7 +73,7 @@ public sealed class TransferService
         var accounts = await _accounts.GetByCustomerAsync(customerId, cancellationToken);
 
         return accounts
-            .Select(a => new AccountSummary(a.AccountId, a.AccountNumber, a.AvailableBalance, a.IsActive))
+            .Select(a => new AccountSummary(a.AccountId, AccountNumberMasking.Mask(a.AccountNumber), a.AvailableBalance, a.IsActive))
             .ToList();
     }
 
@@ -103,7 +104,7 @@ public sealed class TransferService
                 : DisplayName(r.FromFirstName, r.FromLastName);
 
             return new TransactionSummary(
-                r.TransactionId, r.CreatedAt, direction, counterparty, counterpartyName, r.Amount, r.Comment);
+                r.TransactionId, r.CreatedAt, direction, AccountNumberMasking.Mask(counterparty), counterpartyName, r.Amount, r.Comment);
         }).ToList();
     }
 
@@ -132,7 +133,7 @@ public sealed class TransferService
             return null;
         }
 
-        return new RecipientVerification(recipient.AccountNumber, DisplayName(recipient));
+        return new RecipientVerification(recipient.AccountId, AccountNumberMasking.Mask(recipient.AccountNumber), DisplayName(recipient));
     }
 
     public async Task<TransferResult> TransferAsync(
@@ -223,8 +224,8 @@ public sealed class TransferService
                         outcome.TransactionId!.Value,
                         outcome.CreatedAt!.Value,
                         amount,
-                        sender.AccountNumber,
-                        recipient.AccountNumber,
+                        AccountNumberMasking.Mask(sender.AccountNumber),
+                        AccountNumberMasking.Mask(recipient.AccountNumber),
                         DisplayName(recipient),
                         outcome.SenderBalanceAfter!.Value));
 
@@ -271,8 +272,8 @@ public sealed class TransferService
                 existing.TransactionId,
                 existing.CreatedAt,
                 existing.Amount,
-                existing.FromAccountNumber,
-                existing.ToAccountNumber,
+                AccountNumberMasking.Mask(existing.FromAccountNumber),
+                AccountNumberMasking.Mask(existing.ToAccountNumber),
                 recipient is null ? string.Empty : DisplayName(recipient),
                 current?.AvailableBalance ?? 0m));
     }

@@ -39,7 +39,7 @@
             {
                 <div class="account-option">
                     <div class="account-card">
-                        <span class="account-card-number">@account.AccountNumber</span>
+                        <span class="account-card-number">@AccountNumberMasking.Mask(account.AccountNumber)</span>
                         <span class="account-card-balance">Available balance @Money(account.AvailableBalance)</span>
                         <span class="badge @(account.IsActive ? "text-bg-success" : "text-bg-secondary") align-self-start mt-1">
                             @(account.IsActive ? "Active" : "Inactive")

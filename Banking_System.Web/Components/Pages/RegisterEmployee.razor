@@ -1,0 +1,162 @@
+@page "/register/employee"
+@layout Layout.AuthLayout
+@using Banking_System.Web.Models.Authentication
+@using Banking_System.Web.Services.Authentication
+@inject AuthApiClient AuthApi
+@inject NavigationManager Navigation
+
+<PageTitle>Staff Registration | SecureBank</PageTitle>
+
+<div class="auth-card">
+    <h1>Staff Registration</h1>
+    <p class="text-muted mb-4">
+        For SecureBank employees. Register with your work email address
+        (@("@" + StaffRegisterInput.StaffEmailDomain)) to get an employee login.
+    </p>
+
+    @if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Start the Aspire AppHost and try again.
+        </div>
+    }
+    else if (_alert is not null)
+    {
+        <div class="alert alert-danger" role="alert">@_alert</div>
+    }
+
+    <EditForm EditContext="_editContext"
+              FormName="register-employee"
+              OnValidSubmit="RegisterAsync"
+              OnInvalidSubmit="ClearPasswords"
+              method="post"
+              novalidate>
+        <DataAnnotationsValidator />
+
+        <div class="mb-3">
+            <label class="form-label" for="email">Work email address</label>
+            <InputText class="form-control" id="email" type="email" @bind-Value="Input!.Email" autocomplete="email" />
+            <ValidationMessage For="() => Input!.Email" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="username">Username</label>
+            <div class="input-group">
+                <span class="input-group-text">@@</span>
+                <InputText class="form-control"
+                           id="username"
+                           @bind-Value="Input!.Username"
+                           autocomplete="username"
+                           autocapitalize="none"
+                           spellcheck="false"
+                           maxlength="30" />
+            </div>
+            <div class="form-text">3-30 characters: letters, numbers and underscores.</div>
+            <ValidationMessage For="() => Input!.Username" />
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label" for="password">Password</label>
+                <InputText class="form-control" id="password" type="password" @bind-Value="Input!.Password" autocomplete="new-password" />
+                <div class="form-text">Use at least 8 characters.</div>
+                <ValidationMessage For="() => Input!.Password" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="confirmPassword">Confirm password</label>
+                <InputText class="form-control" id="confirmPassword" type="password" @bind-Value="Input!.ConfirmPassword" autocomplete="new-password" />
+                <ValidationMessage For="() => Input!.ConfirmPassword" />
+            </div>
+        </div>
+
+        <button class="btn btn-primary w-100 mt-4" type="submit">
+            Register
+        </button>
+    </EditForm>
+
+    <hr class="my-4" />
+
+    <p class="mb-0 text-center">
+        Already have a login?
+        <a href="/login" class="fw-semibold text-decoration-none">Sign in</a>
+    </p>
+    <p class="mb-0 text-center mt-2">
+        Bank customer?
+        <a href="/register" class="fw-semibold text-decoration-none">Register here</a>
+    </p>
+</div>
+
+@code {
+    [SupplyParameterFromForm(FormName = "register-employee")]
+    private StaffRegisterInput? Input { get; set; }
+
+    private EditContext _editContext = default!;
+    private ValidationMessageStore _serverMessages = default!;
+
+    private string? _alert;
+    private bool _unavailable;
+
+    protected override void OnInitialized()
+    {
+        Input ??= new StaffRegisterInput();
+
+        _editContext = new EditContext(Input);
+        _serverMessages = new ValidationMessageStore(_editContext);
+
+        _editContext.OnFieldChanged += (_, e) => _serverMessages.Clear(e.FieldIdentifier);
+    }
+
+    private async Task RegisterAsync()
+    {
+        _unavailable = false;
+        _alert = null;
+        _serverMessages.Clear();
+
+        ApiResult<NoData> result;
+
+        try
+        {
+            result = await AuthApi.RegisterEmployeeAsync(Input!.ToRequest());
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+            ClearPasswords();
+            return;
+        }
+
+        if (result.Success)
+        {
+            Navigation.NavigateTo("/login?registered=true");
+            return;
+        }
+
+        switch (result.Error)
+        {
+            case "UsernameTaken":
+                _serverMessages.Add(
+                    _editContext.Field(nameof(StaffRegisterInput.Username)),
+                    "That username is already taken.");
+                break;
+
+            case "EmailTaken":
+                _serverMessages.Add(
+                    _editContext.Field(nameof(StaffRegisterInput.Email)),
+                    "An account with this email already exists.");
+                break;
+
+            default:
+                _alert = "Some of the details are not valid. Please review the form and try again.";
+                break;
+        }
+
+        ClearPasswords();
+        _editContext.NotifyValidationStateChanged();
+    }
+
+    private void ClearPasswords()
+    {
+        Input!.Password = string.Empty;
+        Input.ConfirmPassword = string.Empty;
+    }
+}

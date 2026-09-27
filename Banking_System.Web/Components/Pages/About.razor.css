@@ -1,0 +1,143 @@
+.about-hero {
+    max-width: 42rem;
+    padding: 3rem 0 1rem;
+}
+
+.about-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: .35rem .85rem;
+    border-radius: 999px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+}
+
+.about-hero h1 {
+    margin: 1.1rem 0 0;
+    font-family: var(--font-display);
+    font-size: 2.3rem;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: var(--heading);
+}
+
+.about-lead {
+    margin: .9rem 0 0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+}
+
+.about-section {
+    max-width: 48rem;
+    padding: 1.75rem 0;
+}
+
+.about-section h2 {
+    margin: 0 0 1.1rem;
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--heading);
+}
+
+.about-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+
+.about-item {
+    display: flex;
+    align-items: flex-start;
+    gap: .9rem;
+    padding: 1.1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.about-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: var(--radius);
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.about-item h3 {
+    margin: 0 0 .3rem;
+    font-family: var(--font-display);
+    font-size: .98rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.about-item p {
+    margin: 0;
+    font-size: .88rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.about-security-list {
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.about-security-list li {
+    position: relative;
+    padding-left: 1.6rem;
+    font-size: .95rem;
+    line-height: 1.55;
+    color: var(--text);
+}
+
+.about-security-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: .5rem;
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+    background: var(--primary);
+}
+
+.about-cta {
+    padding-bottom: 3rem;
+}
+
+.about-cta p {
+    margin: 0 0 1.1rem;
+    color: var(--text-muted);
+}
+
+@media (max-width: 700.98px) {
+    .about-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640.98px) {
+    .about-hero {
+        padding: 2rem 0 .75rem;
+    }
+
+    .about-hero h1 {
+        font-size: 1.9rem;
+    }
+}
