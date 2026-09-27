@@ -1,4 +1,4 @@
-/*
+﻿/*
     SecureBank Identity Database
     Run this script in SQL Server Management Studio, or with: sqlcmd -S localhost -E -C -I -i SecureBankIdentityDb.sql
 
@@ -30,8 +30,13 @@
     constraint, so they can be validated, displayed and changed without touching
     any key or foreign key, and keys cannot be guessed by counting.
 
-    The lookup GUIDs below are fixed on purpose: the application refers to them
-    by value (see Models/LookupIds.cs), so they must not be changed.
+    The lookup GUIDs below are fixed on purpose (the application refers to them
+    by value - see Models/LookupIds.cs, so they must not be changed) and are
+    each a random v4 GUID, not a guessable sequential pattern: knowing one
+    lookup key gives no way to guess another table's key, or another row in
+    the same table. A database seeded with the older sequential pattern
+    (10000000-...-0001, 20000000-...-0001, and so on) is rekeyed to these
+    values in place - see "Rekey the lookup tables" near the end.
 */
 
 IF DB_ID(N'SecureBankIdentityDb') IS NULL
@@ -85,23 +90,23 @@ GO
 INSERT dbo.Roles (RoleId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('10000000-0000-0000-0000-000000000001', N'Customer'),
-        ('10000000-0000-0000-0000-000000000002', N'Employee'),
-        ('10000000-0000-0000-0000-000000000003', N'Admin')) AS v (Id, Name)
+        ('2AD39D82-4527-421F-BC48-0024F41392C3', N'Customer'),
+        ('8AFC0CD1-50D7-4CDE-9555-C336E07C632E', N'Employee'),
+        ('6B7A8B89-B9A0-4B50-B800-3806C6FDAB09', N'Admin')) AS v (Id, Name)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.Roles r WHERE r.RoleId = v.Id);
 
 INSERT dbo.Statuses (StatusId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('20000000-0000-0000-0000-000000000001', N'Active'),
-        ('20000000-0000-0000-0000-000000000002', N'Inactive')) AS v (Id, Name)
+        ('29394BF4-EB03-4808-B2B4-5452F352D506', N'Active'),
+        ('036BA01A-4FD0-4AB4-8A43-21B08A9DC67F', N'Inactive')) AS v (Id, Name)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.Statuses s WHERE s.StatusId = v.Id);
 
 INSERT dbo.OtpPurposes (PurposeId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('30000000-0000-0000-0000-000000000001', N'PasswordReset'),
-        ('30000000-0000-0000-0000-000000000002', N'UsernameRecovery')) AS v (Id, Name)
+        ('BD3B00CA-D8E3-4B4A-9B98-90E5B7F58B50', N'PasswordReset'),
+        ('2E8909F7-34EF-4E74-8479-7A4A2FEE9D93', N'UsernameRecovery')) AS v (Id, Name)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.OtpPurposes p WHERE p.PurposeId = v.Id);
 GO
 
@@ -199,7 +204,7 @@ BEGIN
         PhoneNumber NVARCHAR(20) NOT NULL,
 
         StatusId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_BankCustomers_Status DEFAULT ('20000000-0000-0000-0000-000000000001')
+            CONSTRAINT DF_BankCustomers_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506')
             CONSTRAINT FK_BankCustomers_Status REFERENCES dbo.Statuses (StatusId),
 
         FailedVerificationCount INT NOT NULL
@@ -239,7 +244,7 @@ BEGIN
             CONSTRAINT CK_BankAccounts_Balance CHECK (AvailableBalance >= 0),
 
         StatusId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_BankAccounts_Status DEFAULT ('20000000-0000-0000-0000-000000000001')
+            CONSTRAINT DF_BankAccounts_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506')
             CONSTRAINT FK_BankAccounts_Status REFERENCES dbo.Statuses (StatusId)
     );
 
@@ -278,7 +283,7 @@ BEGIN
             CONSTRAINT FK_Users_Role REFERENCES dbo.Roles (RoleId),
 
         StatusId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_Users_Status DEFAULT ('20000000-0000-0000-0000-000000000001')
+            CONSTRAINT DF_Users_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506')
             CONSTRAINT FK_Users_Status REFERENCES dbo.Statuses (StatusId),
 
         CreatedAt DATETIME2(3) NOT NULL
@@ -641,11 +646,11 @@ GO
 IF COL_LENGTH(N'dbo.Users', N'Role') IS NOT NULL
     EXEC (N'UPDATE u SET RoleId = r.RoleId FROM dbo.Users u JOIN dbo.Roles r ON r.Name = u.Role WHERE u.RoleId IS NULL');
 IF COL_LENGTH(N'dbo.Users', N'IsActive') IS NOT NULL
-    EXEC (N'UPDATE dbo.Users SET StatusId = CASE WHEN IsActive = 1 THEN ''20000000-0000-0000-0000-000000000001'' ELSE ''20000000-0000-0000-0000-000000000002'' END WHERE StatusId IS NULL');
+    EXEC (N'UPDATE dbo.Users SET StatusId = CASE WHEN IsActive = 1 THEN ''29394BF4-EB03-4808-B2B4-5452F352D506'' ELSE ''036BA01A-4FD0-4AB4-8A43-21B08A9DC67F'' END WHERE StatusId IS NULL');
 IF COL_LENGTH(N'dbo.BankCustomers', N'IsActive') IS NOT NULL
-    EXEC (N'UPDATE dbo.BankCustomers SET StatusId = CASE WHEN IsActive = 1 THEN ''20000000-0000-0000-0000-000000000001'' ELSE ''20000000-0000-0000-0000-000000000002'' END WHERE StatusId IS NULL');
+    EXEC (N'UPDATE dbo.BankCustomers SET StatusId = CASE WHEN IsActive = 1 THEN ''29394BF4-EB03-4808-B2B4-5452F352D506'' ELSE ''036BA01A-4FD0-4AB4-8A43-21B08A9DC67F'' END WHERE StatusId IS NULL');
 IF COL_LENGTH(N'dbo.BankAccounts', N'IsActive') IS NOT NULL
-    EXEC (N'UPDATE dbo.BankAccounts SET StatusId = CASE WHEN IsActive = 1 THEN ''20000000-0000-0000-0000-000000000001'' ELSE ''20000000-0000-0000-0000-000000000002'' END WHERE StatusId IS NULL');
+    EXEC (N'UPDATE dbo.BankAccounts SET StatusId = CASE WHEN IsActive = 1 THEN ''29394BF4-EB03-4808-B2B4-5452F352D506'' ELSE ''036BA01A-4FD0-4AB4-8A43-21B08A9DC67F'' END WHERE StatusId IS NULL');
 IF COL_LENGTH(N'dbo.OtpChallenges', N'Purpose') IS NOT NULL
     EXEC (N'UPDATE c SET PurposeId = p.PurposeId FROM dbo.OtpChallenges c JOIN dbo.OtpPurposes p ON p.Name = c.Purpose WHERE c.PurposeId IS NULL');
 
@@ -667,11 +672,11 @@ IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.OtpChalle
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_Users_Status')
-    ALTER TABLE dbo.Users ADD CONSTRAINT DF_Users_Status DEFAULT ('20000000-0000-0000-0000-000000000001') FOR StatusId;
+    ALTER TABLE dbo.Users ADD CONSTRAINT DF_Users_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506') FOR StatusId;
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_BankCustomers_Status')
-    ALTER TABLE dbo.BankCustomers ADD CONSTRAINT DF_BankCustomers_Status DEFAULT ('20000000-0000-0000-0000-000000000001') FOR StatusId;
+    ALTER TABLE dbo.BankCustomers ADD CONSTRAINT DF_BankCustomers_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506') FOR StatusId;
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_BankAccounts_Status')
-    ALTER TABLE dbo.BankAccounts ADD CONSTRAINT DF_BankAccounts_Status DEFAULT ('20000000-0000-0000-0000-000000000001') FOR StatusId;
+    ALTER TABLE dbo.BankAccounts ADD CONSTRAINT DF_BankAccounts_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506') FOR StatusId;
 
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Users_Role')
     ALTER TABLE dbo.Users ADD CONSTRAINT FK_Users_Role FOREIGN KEY (RoleId) REFERENCES dbo.Roles (RoleId);
@@ -701,6 +706,90 @@ IF COL_LENGTH(N'dbo.Users', N'IsActive') IS NOT NULL ALTER TABLE dbo.Users DROP 
 IF COL_LENGTH(N'dbo.BankCustomers', N'IsActive') IS NOT NULL ALTER TABLE dbo.BankCustomers DROP COLUMN IsActive;
 IF COL_LENGTH(N'dbo.BankAccounts', N'IsActive') IS NOT NULL ALTER TABLE dbo.BankAccounts DROP COLUMN IsActive;
 IF COL_LENGTH(N'dbo.OtpChallenges', N'Purpose') IS NOT NULL ALTER TABLE dbo.OtpChallenges DROP COLUMN Purpose;
+GO
+
+/* ==================================================================
+   Rekey the lookup tables to non-predictable GUIDs.
+
+   The three lookup tables above used to be seeded with a guessable
+   sequential pattern (10000000-...-0001, ...-0002, ...; 20000000-...; and
+   so on): anyone who learned one lookup key could guess the rest. This
+   swaps every lookup row to a fresh random GUID and repoints every foreign
+   key that used the old value - matched by name, so it works regardless of
+   which old value a given database happens to still have.
+
+   The Name column is unique, so each row is renamed out of the way first,
+   the new row is inserted, every reference is repointed, and only then is
+   the old row removed - never two rows sharing a name, and no window where
+   a foreign key points at a row that does not exist.
+================================================================== */
+IF EXISTS (SELECT 1 FROM dbo.Roles WHERE RoleId IN
+    ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003'))
+BEGIN
+    UPDATE dbo.Roles SET Name = Name + N'__rekey' WHERE RoleId IN
+        ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003');
+
+    INSERT dbo.Roles (RoleId, Name)
+    SELECT v.Id, v.Name
+    FROM (VALUES
+            ('2AD39D82-4527-421F-BC48-0024F41392C3', N'Customer'),
+            ('8AFC0CD1-50D7-4CDE-9555-C336E07C632E', N'Employee'),
+            ('6B7A8B89-B9A0-4B50-B800-3806C6FDAB09', N'Admin')) AS v (Id, Name)
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.Roles r WHERE r.RoleId = v.Id);
+
+    UPDATE dbo.Users SET RoleId = '2AD39D82-4527-421F-BC48-0024F41392C3' WHERE RoleId = '10000000-0000-0000-0000-000000000001';
+    UPDATE dbo.Users SET RoleId = '8AFC0CD1-50D7-4CDE-9555-C336E07C632E' WHERE RoleId = '10000000-0000-0000-0000-000000000002';
+    UPDATE dbo.Users SET RoleId = '6B7A8B89-B9A0-4B50-B800-3806C6FDAB09' WHERE RoleId = '10000000-0000-0000-0000-000000000003';
+
+    DELETE FROM dbo.Roles WHERE RoleId IN
+        ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003');
+END;
+GO
+
+IF EXISTS (SELECT 1 FROM dbo.Statuses WHERE StatusId IN
+    ('20000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002'))
+BEGIN
+    UPDATE dbo.Statuses SET Name = Name + N'__rekey' WHERE StatusId IN
+        ('20000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002');
+
+    INSERT dbo.Statuses (StatusId, Name)
+    SELECT v.Id, v.Name
+    FROM (VALUES
+            ('29394BF4-EB03-4808-B2B4-5452F352D506', N'Active'),
+            ('036BA01A-4FD0-4AB4-8A43-21B08A9DC67F', N'Inactive')) AS v (Id, Name)
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.Statuses s WHERE s.StatusId = v.Id);
+
+    UPDATE dbo.Users SET StatusId = '29394BF4-EB03-4808-B2B4-5452F352D506' WHERE StatusId = '20000000-0000-0000-0000-000000000001';
+    UPDATE dbo.Users SET StatusId = '036BA01A-4FD0-4AB4-8A43-21B08A9DC67F' WHERE StatusId = '20000000-0000-0000-0000-000000000002';
+    UPDATE dbo.BankCustomers SET StatusId = '29394BF4-EB03-4808-B2B4-5452F352D506' WHERE StatusId = '20000000-0000-0000-0000-000000000001';
+    UPDATE dbo.BankCustomers SET StatusId = '036BA01A-4FD0-4AB4-8A43-21B08A9DC67F' WHERE StatusId = '20000000-0000-0000-0000-000000000002';
+    UPDATE dbo.BankAccounts SET StatusId = '29394BF4-EB03-4808-B2B4-5452F352D506' WHERE StatusId = '20000000-0000-0000-0000-000000000001';
+    UPDATE dbo.BankAccounts SET StatusId = '036BA01A-4FD0-4AB4-8A43-21B08A9DC67F' WHERE StatusId = '20000000-0000-0000-0000-000000000002';
+
+    DELETE FROM dbo.Statuses WHERE StatusId IN
+        ('20000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002');
+END;
+GO
+
+IF EXISTS (SELECT 1 FROM dbo.OtpPurposes WHERE PurposeId IN
+    ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002'))
+BEGIN
+    UPDATE dbo.OtpPurposes SET Name = Name + N'__rekey' WHERE PurposeId IN
+        ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002');
+
+    INSERT dbo.OtpPurposes (PurposeId, Name)
+    SELECT v.Id, v.Name
+    FROM (VALUES
+            ('BD3B00CA-D8E3-4B4A-9B98-90E5B7F58B50', N'PasswordReset'),
+            ('2E8909F7-34EF-4E74-8479-7A4A2FEE9D93', N'UsernameRecovery')) AS v (Id, Name)
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.OtpPurposes p WHERE p.PurposeId = v.Id);
+
+    UPDATE dbo.OtpChallenges SET PurposeId = 'BD3B00CA-D8E3-4B4A-9B98-90E5B7F58B50' WHERE PurposeId = '30000000-0000-0000-0000-000000000001';
+    UPDATE dbo.OtpChallenges SET PurposeId = '2E8909F7-34EF-4E74-8479-7A4A2FEE9D93' WHERE PurposeId = '30000000-0000-0000-0000-000000000002';
+
+    DELETE FROM dbo.OtpPurposes WHERE PurposeId IN
+        ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002');
+END;
 GO
 
 /* ==================================================================
