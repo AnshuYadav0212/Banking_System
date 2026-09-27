@@ -108,19 +108,32 @@ main {
 @media (min-width: 641px) {
     .page {
         flex-direction: row;
+        height: 100vh;
     }
 
     .sidebar {
         width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
         flex: none;
+        display: flex;
+        flex-direction: column;
+        /* A safety net: whatever the sidebar's own children add up to, this
+           box never spills over and forces the page itself to scroll - the
+           nav list's own scrollbar (see .nav-scrollable) is the only one
+           that should ever move when scrolling inside the sidebar. */
+        overflow: hidden;
         transition: width .15s ease;
     }
 
     :root[data-sidebar="collapsed"] .sidebar {
         width: 4.5rem;
+    }
+
+    /* The sidebar and the page content are two independent scroll areas -
+       scrolling one must never move the other. Each gets its own fixed
+       height and its own scrollbar instead of sharing the body's scroll. */
+    main {
+        height: 100vh;
+        overflow-y: auto;
     }
 
     .top-row {
