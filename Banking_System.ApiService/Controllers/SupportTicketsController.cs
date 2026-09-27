@@ -40,6 +40,7 @@ public sealed class SupportTicketsController : ControllerBase
             CreateTicketStatus.CustomerNotAllowed => Forbid(),
             CreateTicketStatus.InvalidCategory => BadRequest(new { error = "InvalidCategory" }),
             CreateTicketStatus.TransactionNotFound => BadRequest(new { error = "TransactionNotFound" }),
+            CreateTicketStatus.TransactionRequired => BadRequest(new { error = "TransactionRequired" }),
             _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
     }

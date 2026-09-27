@@ -48,24 +48,31 @@
                         <InputSelect class="form-select" id="category" @bind-Value="Input!.CategoryId">
                             @foreach (var c in TicketCategories.All)
                             {
-                                <option value="@c.Id">@c.Label</option>
+                                <option value="@c.Id" data-requires-tx="@(TicketCategories.RequiresTransaction(c.Id) ? "true" : "false")">@c.Label</option>
                             }
                         </InputSelect>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Related transaction <span class="text-muted">(optional)</span></label>
+                        <label class="form-label">
+                            Related transaction
+                            <span class="@(TicketCategories.RequiresTransaction(Input!.CategoryId) ? "text-danger" : "text-muted")" data-tx-required-hint>
+                                @(TicketCategories.RequiresTransaction(Input!.CategoryId) ? "(required for this category)" : "(optional)")
+                            </span>
+                        </label>
 
-                        <details class="tx-picker" open="@(!string.IsNullOrEmpty(TransactionChoice))">
+                        <details class="tx-picker" open="@(!string.IsNullOrEmpty(TransactionChoice) || _transactionError is not null)">
                             <summary class="tx-picker-summary">
-                                @if (SelectedTransaction is { } selected)
-                                {
-                                    <span>@selected.CounterpartyName &middot; @Time(selected.CreatedAt) &middot; @Ref(selected.TransactionId)</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">None selected - tap to search</span>
-                                }
+                                <span class="tx-picker-summary-text @(SelectedTransaction is null ? "text-muted" : null)" data-tx-summary-text>
+                                    @if (SelectedTransaction is { } selected)
+                                    {
+                                        @($"{selected.CounterpartyName} · {Time(selected.CreatedAt)} · {Ref(selected.TransactionId)}")
+                                    }
+                                    else
+                                    {
+                                        @:None selected - tap to search
+                                    }
+                                </span>
                             </summary>
 
                             <div class="tx-picker-panel">
@@ -75,7 +82,7 @@
 
                                 <InputRadioGroup @bind-Value="TransactionChoice">
                                     <div class="tx-picker-list">
-                                        <label class="tx-pick-row">
+                                        <label class="tx-pick-row" data-tx-preview="None selected - tap to search">
                                             <InputRadio Value="@string.Empty" class="tx-pick-radio" />
                                             <span class="tx-main">
                                                 <span class="tx-title">None</span>
@@ -84,7 +91,8 @@
                                         </label>
                                         @foreach (var t in _transactions)
                                         {
-                                            <label class="tx-pick-row" data-tx-search="@SearchText(t)">
+                                            <label class="tx-pick-row" data-tx-search="@SearchText(t)"
+                                                   data-tx-preview="@($"{t.CounterpartyName} · {Time(t.CreatedAt)} · {Ref(t.TransactionId)}")">
                                                 <InputRadio Value="@t.TransactionId.ToString()" class="tx-pick-radio" />
                                                 <span class="tx-main">
                                                     <span class="tx-title">@t.CounterpartyName</span>
@@ -99,6 +107,10 @@
                                 <p class="tx-pick-empty text-muted small mb-0 mt-2" hidden>No matching transactions.</p>
                             </div>
                         </details>
+                        @if (_transactionError is not null)
+                        {
+                            <div class="text-danger small mt-1">@_transactionError</div>
+                        }
                     </div>
 
                     <div class="mb-3">
@@ -108,7 +120,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label" for="description">Description</label>
+                        <label class="form-label" for="description">Description <span class="text-muted">(optional)</span></label>
                         <InputTextArea class="form-control" id="description" @bind-Value="Input!.Description" rows="5" maxlength="2000" />
                         <ValidationMessage For="() => Input!.Description" />
                         <div class="form-text">Include amounts, dates and anything else that will help us investigate.</div>
@@ -140,6 +152,7 @@
     private string? _token;
     private List<TransactionSummary> _transactions = [];
     private string? _alert;
+    private string? _transactionError;
     private bool _sessionExpired;
     private bool _unavailable;
 
@@ -178,9 +191,16 @@
     private async Task SubmitAsync()
     {
         _alert = null;
+        _transactionError = null;
         _unavailable = false;
 
         Input!.TransactionId = Guid.TryParse(TransactionChoice, out var id) ? id : null;
+
+        if (Input.TransactionId is null && TicketCategories.RequiresTransaction(Input.CategoryId))
+        {
+            _transactionError = "Choose the transaction this is about - it's required for this category.";
+            return;
+        }
 
         ApiResult<CreateTicketResponse> result;
 
@@ -188,7 +208,7 @@
         {
             result = await Tickets.CreateAsync(
                 _token!,
-                new CreateTicketRequest(Input.CategoryId, Input.Subject.Trim(), Input.Description.Trim(), Input.TransactionId));
+                new CreateTicketRequest(Input.CategoryId, Input.Subject.Trim(), Input.Description?.Trim(), Input.TransactionId));
         }
         catch (HttpRequestException)
         {
@@ -205,6 +225,12 @@
         if (result.Error == "Unauthorized")
         {
             _sessionExpired = true;
+            return;
+        }
+
+        if (result.Error == "TransactionRequired")
+        {
+            _transactionError = "Choose the transaction this is about - it's required for this category.";
             return;
         }
 

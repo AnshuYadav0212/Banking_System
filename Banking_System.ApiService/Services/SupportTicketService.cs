@@ -9,7 +9,8 @@ public enum CreateTicketStatus
     Created,
     CustomerNotAllowed,
     InvalidCategory,
-    TransactionNotFound
+    TransactionNotFound,
+    TransactionRequired
 }
 
 public enum TicketActionStatus
@@ -39,6 +40,14 @@ public sealed class SupportTicketService
         TicketCategoryIds.TransactionIssue,
         TicketCategoryIds.Security,
         TicketCategoryIds.General
+    };
+
+    // A dispute or an issue is inherently about one transaction; without it
+    // there is nothing concrete for an employee to investigate.
+    private static readonly IReadOnlySet<Guid> TransactionRequiredCategories = new HashSet<Guid>
+    {
+        TicketCategoryIds.TransactionDispute,
+        TicketCategoryIds.TransactionIssue
     };
 
     private readonly IUserRepository _users;
@@ -73,6 +82,11 @@ public sealed class SupportTicketService
             return new CreateTicketResult(CreateTicketStatus.InvalidCategory);
         }
 
+        if (request.TransactionId is null && TransactionRequiredCategories.Contains(request.CategoryId))
+        {
+            return new CreateTicketResult(CreateTicketStatus.TransactionRequired);
+        }
+
         if (request.TransactionId is { } transactionId)
         {
             var transaction = await _transactions.GetByIdAsync(transactionId, cancellationToken);
@@ -99,7 +113,7 @@ public sealed class SupportTicketService
             PriorityId = priorityId,
             StatusId = TicketStatusIds.Open,
             Subject = request.Subject.Trim(),
-            Description = request.Description.Trim(),
+            Description = request.Description?.Trim() ?? string.Empty,
             TransactionId = request.TransactionId,
             CreatedAt = DateTime.UtcNow
         };

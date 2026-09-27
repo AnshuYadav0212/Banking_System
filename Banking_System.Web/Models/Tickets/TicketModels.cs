@@ -74,6 +74,11 @@ public static class TicketCategories
         "General" => "General",
         _ => code
     };
+
+    // A dispute or an issue is inherently about one transaction, so the
+    // related-transaction field stops being optional for these two.
+    public static bool RequiresTransaction(Guid categoryId) =>
+        categoryId == TicketCategoryIds.TransactionDispute || categoryId == TicketCategoryIds.TransactionIssue;
 }
 
 public sealed record TicketSummary(
@@ -119,13 +124,12 @@ public sealed class CreateTicketInput
     [StringLength(200, MinimumLength = 4, ErrorMessage = "Subject must be 4 to 200 characters.")]
     public string Subject { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Describe the issue.")]
-    [StringLength(2000, MinimumLength = 10, ErrorMessage = "Description must be 10 to 2000 characters.")]
-    public string Description { get; set; } = string.Empty;
+    [StringLength(2000, ErrorMessage = "Description must be at most 2000 characters.")]
+    public string? Description { get; set; }
 
     public Guid? TransactionId { get; set; }
 }
 
-public sealed record CreateTicketRequest(Guid CategoryId, string Subject, string Description, Guid? TransactionId);
+public sealed record CreateTicketRequest(Guid CategoryId, string Subject, string? Description, Guid? TransactionId);
 
 public sealed record TicketActionRequest(string? Note);
