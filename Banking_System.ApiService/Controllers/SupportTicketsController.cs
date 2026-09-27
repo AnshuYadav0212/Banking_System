@@ -117,11 +117,6 @@ public sealed class SupportTicketsController : ControllerBase
         return RunActionAsync(ticketId, (employeeId, ct) => _tickets.RejectAsync(employeeId, ticketId, request.Note.Trim(), ct), cancellationToken);
     }
 
-    [HttpPost("{ticketId:guid}/close")]
-    [Authorize(Policy = "EmployeeOrAdmin")]
-    public Task<IActionResult> Close(Guid ticketId, TicketActionRequest request, CancellationToken cancellationToken) =>
-        RunActionAsync(ticketId, (employeeId, ct) => _tickets.CloseAsync(employeeId, ticketId, string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(), ct), cancellationToken);
-
     private async Task<IActionResult> RunActionAsync(
         Guid ticketId, Func<Guid, CancellationToken, Task<TicketActionResult>> action, CancellationToken cancellationToken)
     {

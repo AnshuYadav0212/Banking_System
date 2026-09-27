@@ -96,13 +96,6 @@
                                     <button class="btn btn-outline-primary" type="submit">Start review</button>
                                 </form>
                             }
-                            @if (ticket.Status is "Resolved" or "Rejected")
-                            {
-                                <form method="post" action="/tickets/@TicketId/close">
-                                    <AntiforgeryToken />
-                                    <button class="btn btn-secondary" type="submit">Close ticket</button>
-                                </form>
-                            }
                         </div>
 
                         @if (ticket.Status is "Open" or "UnderReview")
@@ -113,7 +106,7 @@
                                         <AntiforgeryToken />
                                         <label class="form-label" for="resolve-note">Resolution note</label>
                                         <textarea class="form-control" id="resolve-note" name="note" rows="2" maxlength="2000"></textarea>
-                                        <button class="btn btn-success mt-2" type="submit">Resolve</button>
+                                        <button class="btn btn-success mt-2" type="submit">Resolve &amp; close</button>
                                     </form>
                                 </div>
                                 <div class="col-md-6">

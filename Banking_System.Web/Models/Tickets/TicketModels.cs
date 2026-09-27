@@ -16,7 +16,6 @@ public static class TicketStatusIds
 {
     public static readonly Guid Open = new("40000000-0000-0000-0000-000000000001");
     public static readonly Guid UnderReview = new("40000000-0000-0000-0000-000000000002");
-    public static readonly Guid Resolved = new("40000000-0000-0000-0000-000000000003");
     public static readonly Guid Rejected = new("40000000-0000-0000-0000-000000000004");
     public static readonly Guid Closed = new("40000000-0000-0000-0000-000000000005");
 }
@@ -27,7 +26,6 @@ public static class TicketStatuses
     [
         ("Open", TicketStatusIds.Open, "Open"),
         ("UnderReview", TicketStatusIds.UnderReview, "Under Review"),
-        ("Resolved", TicketStatusIds.Resolved, "Resolved"),
         ("Rejected", TicketStatusIds.Rejected, "Rejected"),
         ("Closed", TicketStatusIds.Closed, "Closed")
     ];
@@ -35,8 +33,17 @@ public static class TicketStatuses
     public static Guid? ToId(string? code) =>
         All.Where(s => s.Code == code).Select(s => (Guid?)s.Id).FirstOrDefault();
 
-    public static string Label(string code) =>
-        All.Where(s => s.Code == code).Select(s => s.Label).FirstOrDefault() ?? code;
+    // "Resolved" is a retired status - no ticket can be set to it anymore, but old
+    // activity-log entries can still reference it, so it keeps a readable label here.
+    public static string Label(string code) => code switch
+    {
+        "Open" => "Open",
+        "UnderReview" => "Under Review",
+        "Resolved" => "Resolved",
+        "Rejected" => "Rejected",
+        "Closed" => "Closed",
+        _ => code
+    };
 
     public static string BadgeClass(string code) => code switch
     {
