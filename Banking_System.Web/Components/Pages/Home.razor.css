@@ -97,3 +97,122 @@
         font-size: 2rem;
     }
 }
+
+/* ---- Signed-in dashboard (Customer / Employee) ---- */
+
+.dash-greeting {
+    margin-bottom: 2rem;
+}
+
+.dash-eyebrow {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.dash-greeting h1 {
+    margin: .15rem 0 0;
+    font-family: var(--font-display);
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    color: var(--heading);
+}
+
+.quick-access h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--heading);
+}
+
+.quick-access-sub {
+    margin: .3rem 0 1.1rem;
+    font-size: .92rem;
+    color: var(--text-muted);
+}
+
+.qa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
+    gap: 1.1rem;
+}
+
+.qa-card {
+    position: relative;
+    display: block;
+    padding: 1.25rem 1.35rem 1.4rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    color: inherit;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.qa-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: color-mix(in srgb, var(--qa-fg, var(--primary)) 35%, var(--border));
+}
+
+.qa-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--radius);
+    background: var(--qa-bg, var(--primary-light));
+    color: var(--qa-fg, var(--primary));
+}
+
+.qa-arrow {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: .95rem;
+    transition: background-color .15s ease, color .15s ease, transform .15s ease;
+}
+
+.qa-card:hover .qa-arrow {
+    background: var(--qa-bg, var(--primary-light));
+    color: var(--qa-fg, var(--primary));
+    transform: translateX(2px);
+}
+
+.qa-card h3 {
+    margin: 1rem 0 .3rem;
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.qa-card p {
+    margin: 0;
+    font-size: .88rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.qa-blue { --qa-bg: var(--primary-light); --qa-fg: var(--primary); }
+.qa-green { --qa-bg: var(--success-bg); --qa-fg: var(--success); }
+.qa-purple { --qa-bg: var(--info-bg); --qa-fg: var(--accent); }
+.qa-pink { --qa-bg: var(--danger-bg); --qa-fg: var(--danger); }
+
+@media (max-width: 640.98px) {
+    .dash-greeting h1 {
+        font-size: 1.55rem;
+    }
+}
