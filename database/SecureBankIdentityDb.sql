@@ -1,4 +1,4 @@
-/*
+﻿/*
     SecureBank Identity Database
     Run this script in SQL Server Management Studio, or with: sqlcmd -S localhost -E -C -I -i SecureBankIdentityDb.sql
 
@@ -30,8 +30,13 @@
     constraint, so they can be validated, displayed and changed without touching
     any key or foreign key, and keys cannot be guessed by counting.
 
-    The lookup GUIDs below are fixed on purpose: the application refers to them
-    by value (see Models/LookupIds.cs), so they must not be changed.
+    The lookup GUIDs below are fixed on purpose (the application refers to them
+    by value - see Models/LookupIds.cs, so they must not be changed) and are
+    each a random v4 GUID, not a guessable sequential pattern: knowing one
+    lookup key gives no way to guess another table's key, or another row in
+    the same table. A database seeded with the older sequential pattern
+    (10000000-...-0001, 20000000-...-0001, and so on) is rekeyed to these
+    values in place - see "Rekey the lookup tables" near the end.
 */
 
 IF DB_ID(N'SecureBankIdentityDb') IS NULL
@@ -85,23 +90,23 @@ GO
 INSERT dbo.Roles (RoleId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('10000000-0000-0000-0000-000000000001', N'Customer'),
-        ('10000000-0000-0000-0000-000000000002', N'Employee'),
-        ('10000000-0000-0000-0000-000000000003', N'Admin')) AS v (Id, Name)
+        ('2AD39D82-4527-421F-BC48-0024F41392C3', N'Customer'),
+        ('8AFC0CD1-50D7-4CDE-9555-C336E07C632E', N'Employee'),
+        ('6B7A8B89-B9A0-4B50-B800-3806C6FDAB09', N'Admin')) AS v (Id, Name)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.Roles r WHERE r.RoleId = v.Id);
 
 INSERT dbo.Statuses (StatusId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('20000000-0000-0000-0000-000000000001', N'Active'),
-        ('20000000-0000-0000-0000-000000000002', N'Inactive')) AS v (Id, Name)
+        ('29394BF4-EB03-4808-B2B4-5452F352D506', N'Active'),
+        ('036BA01A-4FD0-4AB4-8A43-21B08A9DC67F', N'Inactive')) AS v (Id, Name)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.Statuses s WHERE s.StatusId = v.Id);
 
 INSERT dbo.OtpPurposes (PurposeId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('30000000-0000-0000-0000-000000000001', N'PasswordReset'),
-        ('30000000-0000-0000-0000-000000000002', N'UsernameRecovery')) AS v (Id, Name)
+        ('BD3B00CA-D8E3-4B4A-9B98-90E5B7F58B50', N'PasswordReset'),
+        ('2E8909F7-34EF-4E74-8479-7A4A2FEE9D93', N'UsernameRecovery')) AS v (Id, Name)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.OtpPurposes p WHERE p.PurposeId = v.Id);
 GO
 
@@ -141,29 +146,29 @@ GO
 INSERT dbo.TicketStatuses (StatusId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('40000000-0000-0000-0000-000000000001', N'Open'),
-        ('40000000-0000-0000-0000-000000000002', N'UnderReview'),
-        ('40000000-0000-0000-0000-000000000003', N'Resolved'),
-        ('40000000-0000-0000-0000-000000000004', N'Rejected'),
-        ('40000000-0000-0000-0000-000000000005', N'Closed')) AS v (Id, Name)
-WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = v.Id);
+        ('7C1E4A92-3B58-4D06-A1F7-E29D5C08B413', N'Open'),
+        ('D48B60F3-91A2-4E7C-8D35-0F6A7B1C92E8', N'UnderReview'),
+        ('3F9A27D5-C6E0-4B81-9A44-B8D2E51F7A06', N'Resolved'),
+        ('A6250E8B-47D3-4F19-B3C8-51E9D07A2C64', N'Rejected'),
+        ('91E7C3B0-2A5F-4D68-86B1-F4C0A93D5E27', N'Closed')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = v.Id OR s.Name = v.Name);
 
 INSERT dbo.TicketCategories (CategoryId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('50000000-0000-0000-0000-000000000001', N'TransactionDispute'),
-        ('50000000-0000-0000-0000-000000000002', N'TransactionIssue'),
-        ('50000000-0000-0000-0000-000000000003', N'Security'),
-        ('50000000-0000-0000-0000-000000000004', N'General')) AS v (Id, Name)
-WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = v.Id);
+        ('5B03D8F1-E6A4-4297-9C5E-17A8B4D2F096', N'TransactionDispute'),
+        ('E2749A6C-0D81-4B35-A7F3-C96B2E80D1A5', N'TransactionIssue'),
+        ('08C5F7A3-B19E-46D2-8E04-7D3A6F5B9C12', N'Security'),
+        ('F61D2B84-5C97-4A03-B5E8-2A90C7E1D34F', N'General')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = v.Id OR c.Name = v.Name);
 
 INSERT dbo.TicketPriorities (PriorityId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('60000000-0000-0000-0000-000000000001', N'Low'),
-        ('60000000-0000-0000-0000-000000000002', N'Normal'),
-        ('60000000-0000-0000-0000-000000000003', N'High')) AS v (Id, Name)
-WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = v.Id);
+        ('4A8E19C7-D0F3-4B62-97A5-6E2B8C3F1D80', N'Low'),
+        ('B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2', N'Normal'),
+        ('69D0A4E5-F2B7-4C18-8B36-C5E90A7D2F41', N'High')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = v.Id OR p.Name = v.Name);
 GO
 
 /* ==================================================================
@@ -199,7 +204,7 @@ BEGIN
         PhoneNumber NVARCHAR(20) NOT NULL,
 
         StatusId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_BankCustomers_Status DEFAULT ('20000000-0000-0000-0000-000000000001')
+            CONSTRAINT DF_BankCustomers_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506')
             CONSTRAINT FK_BankCustomers_Status REFERENCES dbo.Statuses (StatusId),
 
         FailedVerificationCount INT NOT NULL
@@ -239,7 +244,7 @@ BEGIN
             CONSTRAINT CK_BankAccounts_Balance CHECK (AvailableBalance >= 0),
 
         StatusId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_BankAccounts_Status DEFAULT ('20000000-0000-0000-0000-000000000001')
+            CONSTRAINT DF_BankAccounts_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506')
             CONSTRAINT FK_BankAccounts_Status REFERENCES dbo.Statuses (StatusId)
     );
 
@@ -278,7 +283,7 @@ BEGIN
             CONSTRAINT FK_Users_Role REFERENCES dbo.Roles (RoleId),
 
         StatusId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_Users_Status DEFAULT ('20000000-0000-0000-0000-000000000001')
+            CONSTRAINT DF_Users_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506')
             CONSTRAINT FK_Users_Status REFERENCES dbo.Statuses (StatusId),
 
         CreatedAt DATETIME2(3) NOT NULL
@@ -456,11 +461,11 @@ BEGIN
             CONSTRAINT FK_SupportTickets_Category REFERENCES dbo.TicketCategories (CategoryId),
 
         PriorityId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_SupportTickets_Priority DEFAULT ('60000000-0000-0000-0000-000000000002')
+            CONSTRAINT DF_SupportTickets_Priority DEFAULT ('B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2')
             CONSTRAINT FK_SupportTickets_Priority REFERENCES dbo.TicketPriorities (PriorityId),
 
         StatusId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_SupportTickets_Status DEFAULT ('40000000-0000-0000-0000-000000000001')
+            CONSTRAINT DF_SupportTickets_Status DEFAULT ('7C1E4A92-3B58-4D06-A1F7-E29D5C08B413')
             CONSTRAINT FK_SupportTickets_Status REFERENCES dbo.TicketStatuses (StatusId),
 
         Subject NVARCHAR(200) NOT NULL,
@@ -644,11 +649,11 @@ GO
 IF COL_LENGTH(N'dbo.Users', N'Role') IS NOT NULL
     EXEC (N'UPDATE u SET RoleId = r.RoleId FROM dbo.Users u JOIN dbo.Roles r ON r.Name = u.Role WHERE u.RoleId IS NULL');
 IF COL_LENGTH(N'dbo.Users', N'IsActive') IS NOT NULL
-    EXEC (N'UPDATE dbo.Users SET StatusId = CASE WHEN IsActive = 1 THEN ''20000000-0000-0000-0000-000000000001'' ELSE ''20000000-0000-0000-0000-000000000002'' END WHERE StatusId IS NULL');
+    EXEC (N'UPDATE dbo.Users SET StatusId = CASE WHEN IsActive = 1 THEN ''29394BF4-EB03-4808-B2B4-5452F352D506'' ELSE ''036BA01A-4FD0-4AB4-8A43-21B08A9DC67F'' END WHERE StatusId IS NULL');
 IF COL_LENGTH(N'dbo.BankCustomers', N'IsActive') IS NOT NULL
-    EXEC (N'UPDATE dbo.BankCustomers SET StatusId = CASE WHEN IsActive = 1 THEN ''20000000-0000-0000-0000-000000000001'' ELSE ''20000000-0000-0000-0000-000000000002'' END WHERE StatusId IS NULL');
+    EXEC (N'UPDATE dbo.BankCustomers SET StatusId = CASE WHEN IsActive = 1 THEN ''29394BF4-EB03-4808-B2B4-5452F352D506'' ELSE ''036BA01A-4FD0-4AB4-8A43-21B08A9DC67F'' END WHERE StatusId IS NULL');
 IF COL_LENGTH(N'dbo.BankAccounts', N'IsActive') IS NOT NULL
-    EXEC (N'UPDATE dbo.BankAccounts SET StatusId = CASE WHEN IsActive = 1 THEN ''20000000-0000-0000-0000-000000000001'' ELSE ''20000000-0000-0000-0000-000000000002'' END WHERE StatusId IS NULL');
+    EXEC (N'UPDATE dbo.BankAccounts SET StatusId = CASE WHEN IsActive = 1 THEN ''29394BF4-EB03-4808-B2B4-5452F352D506'' ELSE ''036BA01A-4FD0-4AB4-8A43-21B08A9DC67F'' END WHERE StatusId IS NULL');
 IF COL_LENGTH(N'dbo.OtpChallenges', N'Purpose') IS NOT NULL
     EXEC (N'UPDATE c SET PurposeId = p.PurposeId FROM dbo.OtpChallenges c JOIN dbo.OtpPurposes p ON p.Name = c.Purpose WHERE c.PurposeId IS NULL');
 
@@ -670,11 +675,11 @@ IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.OtpChalle
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_Users_Status')
-    ALTER TABLE dbo.Users ADD CONSTRAINT DF_Users_Status DEFAULT ('20000000-0000-0000-0000-000000000001') FOR StatusId;
+    ALTER TABLE dbo.Users ADD CONSTRAINT DF_Users_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506') FOR StatusId;
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_BankCustomers_Status')
-    ALTER TABLE dbo.BankCustomers ADD CONSTRAINT DF_BankCustomers_Status DEFAULT ('20000000-0000-0000-0000-000000000001') FOR StatusId;
+    ALTER TABLE dbo.BankCustomers ADD CONSTRAINT DF_BankCustomers_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506') FOR StatusId;
 IF NOT EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_BankAccounts_Status')
-    ALTER TABLE dbo.BankAccounts ADD CONSTRAINT DF_BankAccounts_Status DEFAULT ('20000000-0000-0000-0000-000000000001') FOR StatusId;
+    ALTER TABLE dbo.BankAccounts ADD CONSTRAINT DF_BankAccounts_Status DEFAULT ('29394BF4-EB03-4808-B2B4-5452F352D506') FOR StatusId;
 
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Users_Role')
     ALTER TABLE dbo.Users ADD CONSTRAINT FK_Users_Role FOREIGN KEY (RoleId) REFERENCES dbo.Roles (RoleId);
@@ -704,6 +709,174 @@ IF COL_LENGTH(N'dbo.Users', N'IsActive') IS NOT NULL ALTER TABLE dbo.Users DROP 
 IF COL_LENGTH(N'dbo.BankCustomers', N'IsActive') IS NOT NULL ALTER TABLE dbo.BankCustomers DROP COLUMN IsActive;
 IF COL_LENGTH(N'dbo.BankAccounts', N'IsActive') IS NOT NULL ALTER TABLE dbo.BankAccounts DROP COLUMN IsActive;
 IF COL_LENGTH(N'dbo.OtpChallenges', N'Purpose') IS NOT NULL ALTER TABLE dbo.OtpChallenges DROP COLUMN Purpose;
+GO
+
+/* ==================================================================
+   Rekey the lookup tables to non-predictable GUIDs.
+
+   The three lookup tables above used to be seeded with a guessable
+   sequential pattern (10000000-...-0001, ...-0002, ...; 20000000-...; and
+   so on): anyone who learned one lookup key could guess the rest. This
+   swaps every lookup row to a fresh random GUID and repoints every foreign
+   key that used the old value - matched by name, so it works regardless of
+   which old value a given database happens to still have.
+
+   The Name column is unique, so each row is renamed out of the way first,
+   the new row is inserted, every reference is repointed, and only then is
+   the old row removed - never two rows sharing a name, and no window where
+   a foreign key points at a row that does not exist.
+================================================================== */
+IF EXISTS (SELECT 1 FROM dbo.Roles WHERE RoleId IN
+    ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003'))
+BEGIN
+    UPDATE dbo.Roles SET Name = Name + N'__rekey' WHERE RoleId IN
+        ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003');
+
+    INSERT dbo.Roles (RoleId, Name)
+    SELECT v.Id, v.Name
+    FROM (VALUES
+            ('2AD39D82-4527-421F-BC48-0024F41392C3', N'Customer'),
+            ('8AFC0CD1-50D7-4CDE-9555-C336E07C632E', N'Employee'),
+            ('6B7A8B89-B9A0-4B50-B800-3806C6FDAB09', N'Admin')) AS v (Id, Name)
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.Roles r WHERE r.RoleId = v.Id);
+
+    UPDATE dbo.Users SET RoleId = '2AD39D82-4527-421F-BC48-0024F41392C3' WHERE RoleId = '10000000-0000-0000-0000-000000000001';
+    UPDATE dbo.Users SET RoleId = '8AFC0CD1-50D7-4CDE-9555-C336E07C632E' WHERE RoleId = '10000000-0000-0000-0000-000000000002';
+    UPDATE dbo.Users SET RoleId = '6B7A8B89-B9A0-4B50-B800-3806C6FDAB09' WHERE RoleId = '10000000-0000-0000-0000-000000000003';
+
+    DELETE FROM dbo.Roles WHERE RoleId IN
+        ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003');
+END;
+GO
+
+IF EXISTS (SELECT 1 FROM dbo.Statuses WHERE StatusId IN
+    ('20000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002'))
+BEGIN
+    UPDATE dbo.Statuses SET Name = Name + N'__rekey' WHERE StatusId IN
+        ('20000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002');
+
+    INSERT dbo.Statuses (StatusId, Name)
+    SELECT v.Id, v.Name
+    FROM (VALUES
+            ('29394BF4-EB03-4808-B2B4-5452F352D506', N'Active'),
+            ('036BA01A-4FD0-4AB4-8A43-21B08A9DC67F', N'Inactive')) AS v (Id, Name)
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.Statuses s WHERE s.StatusId = v.Id);
+
+    UPDATE dbo.Users SET StatusId = '29394BF4-EB03-4808-B2B4-5452F352D506' WHERE StatusId = '20000000-0000-0000-0000-000000000001';
+    UPDATE dbo.Users SET StatusId = '036BA01A-4FD0-4AB4-8A43-21B08A9DC67F' WHERE StatusId = '20000000-0000-0000-0000-000000000002';
+    UPDATE dbo.BankCustomers SET StatusId = '29394BF4-EB03-4808-B2B4-5452F352D506' WHERE StatusId = '20000000-0000-0000-0000-000000000001';
+    UPDATE dbo.BankCustomers SET StatusId = '036BA01A-4FD0-4AB4-8A43-21B08A9DC67F' WHERE StatusId = '20000000-0000-0000-0000-000000000002';
+    UPDATE dbo.BankAccounts SET StatusId = '29394BF4-EB03-4808-B2B4-5452F352D506' WHERE StatusId = '20000000-0000-0000-0000-000000000001';
+    UPDATE dbo.BankAccounts SET StatusId = '036BA01A-4FD0-4AB4-8A43-21B08A9DC67F' WHERE StatusId = '20000000-0000-0000-0000-000000000002';
+
+    DELETE FROM dbo.Statuses WHERE StatusId IN
+        ('20000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002');
+END;
+GO
+
+IF EXISTS (SELECT 1 FROM dbo.OtpPurposes WHERE PurposeId IN
+    ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002'))
+BEGIN
+    UPDATE dbo.OtpPurposes SET Name = Name + N'__rekey' WHERE PurposeId IN
+        ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002');
+
+    INSERT dbo.OtpPurposes (PurposeId, Name)
+    SELECT v.Id, v.Name
+    FROM (VALUES
+            ('BD3B00CA-D8E3-4B4A-9B98-90E5B7F58B50', N'PasswordReset'),
+            ('2E8909F7-34EF-4E74-8479-7A4A2FEE9D93', N'UsernameRecovery')) AS v (Id, Name)
+    WHERE NOT EXISTS (SELECT 1 FROM dbo.OtpPurposes p WHERE p.PurposeId = v.Id);
+
+    UPDATE dbo.OtpChallenges SET PurposeId = 'BD3B00CA-D8E3-4B4A-9B98-90E5B7F58B50' WHERE PurposeId = '30000000-0000-0000-0000-000000000001';
+    UPDATE dbo.OtpChallenges SET PurposeId = '2E8909F7-34EF-4E74-8479-7A4A2FEE9D93' WHERE PurposeId = '30000000-0000-0000-0000-000000000002';
+
+    DELETE FROM dbo.OtpPurposes WHERE PurposeId IN
+        ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002');
+END;
+GO
+
+/* ------------------------------------------------------------------
+   Rekey the ticket lookup tables (TicketStatuses 4000..., TicketCategories
+   5000..., TicketPriorities 6000...) the same way. Old value -> new value
+   is matched by name; the old row is renamed out of the way first, the new
+   row inserted, references repointed, then the old row deleted. The two
+   defaults on SupportTickets embed a lookup value, so they are recreated.
+------------------------------------------------------------------ */
+IF EXISTS (SELECT 1 FROM dbo.TicketStatuses WHERE StatusId IN
+        ('40000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000002',
+         '40000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000004',
+         '40000000-0000-0000-0000-000000000005'))
+   OR EXISTS (SELECT 1 FROM dbo.TicketCategories WHERE CategoryId LIKE '5000000_-0000-0000-0000-00000000000_')
+   OR EXISTS (SELECT 1 FROM dbo.TicketPriorities WHERE PriorityId LIKE '6000000_-0000-0000-0000-00000000000_')
+BEGIN
+    SET XACT_ABORT ON;
+    BEGIN TRAN;
+
+    CREATE TABLE #TicketStatusMap (OldId UNIQUEIDENTIFIER, NewId UNIQUEIDENTIFIER, Name NVARCHAR(20));
+    INSERT #TicketStatusMap VALUES
+        ('40000000-0000-0000-0000-000000000001', '7C1E4A92-3B58-4D06-A1F7-E29D5C08B413', N'Open'),
+        ('40000000-0000-0000-0000-000000000002', 'D48B60F3-91A2-4E7C-8D35-0F6A7B1C92E8', N'UnderReview'),
+        ('40000000-0000-0000-0000-000000000003', '3F9A27D5-C6E0-4B81-9A44-B8D2E51F7A06', N'Resolved'),
+        ('40000000-0000-0000-0000-000000000004', 'A6250E8B-47D3-4F19-B3C8-51E9D07A2C64', N'Rejected'),
+        ('40000000-0000-0000-0000-000000000005', '91E7C3B0-2A5F-4D68-86B1-F4C0A93D5E27', N'Closed');
+
+    CREATE TABLE #TicketCategoryMap (OldId UNIQUEIDENTIFIER, NewId UNIQUEIDENTIFIER, Name NVARCHAR(30));
+    INSERT #TicketCategoryMap VALUES
+        ('50000000-0000-0000-0000-000000000001', '5B03D8F1-E6A4-4297-9C5E-17A8B4D2F096', N'TransactionDispute'),
+        ('50000000-0000-0000-0000-000000000002', 'E2749A6C-0D81-4B35-A7F3-C96B2E80D1A5', N'TransactionIssue'),
+        ('50000000-0000-0000-0000-000000000003', '08C5F7A3-B19E-46D2-8E04-7D3A6F5B9C12', N'Security'),
+        ('50000000-0000-0000-0000-000000000004', 'F61D2B84-5C97-4A03-B5E8-2A90C7E1D34F', N'General');
+
+    CREATE TABLE #TicketPriorityMap (OldId UNIQUEIDENTIFIER, NewId UNIQUEIDENTIFIER, Name NVARCHAR(20));
+    INSERT #TicketPriorityMap VALUES
+        ('60000000-0000-0000-0000-000000000001', '4A8E19C7-D0F3-4B62-97A5-6E2B8C3F1D80', N'Low'),
+        ('60000000-0000-0000-0000-000000000002', 'B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2', N'Normal'),
+        ('60000000-0000-0000-0000-000000000003', '69D0A4E5-F2B7-4C18-8B36-C5E90A7D2F41', N'High');
+
+    -- 1. Move the old rows out of the way of the unique Name.
+    UPDATE s SET s.Name = s.Name + N'__rekey' FROM dbo.TicketStatuses s JOIN #TicketStatusMap m ON m.OldId = s.StatusId;
+    UPDATE c SET c.Name = c.Name + N'__rekey' FROM dbo.TicketCategories c JOIN #TicketCategoryMap m ON m.OldId = c.CategoryId;
+    UPDATE p SET p.Name = p.Name + N'__rekey' FROM dbo.TicketPriorities p JOIN #TicketPriorityMap m ON m.OldId = p.PriorityId;
+
+    -- 2. Insert the new rows.
+    INSERT dbo.TicketStatuses (StatusId, Name)
+    SELECT m.NewId, m.Name FROM #TicketStatusMap m
+    WHERE EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = m.OldId)
+      AND NOT EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = m.NewId);
+    INSERT dbo.TicketCategories (CategoryId, Name)
+    SELECT m.NewId, m.Name FROM #TicketCategoryMap m
+    WHERE EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = m.OldId)
+      AND NOT EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = m.NewId);
+    INSERT dbo.TicketPriorities (PriorityId, Name)
+    SELECT m.NewId, m.Name FROM #TicketPriorityMap m
+    WHERE EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = m.OldId)
+      AND NOT EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = m.NewId);
+
+    -- 3. Repoint every reference.
+    UPDATE t SET t.StatusId = m.NewId FROM dbo.SupportTickets t JOIN #TicketStatusMap m ON m.OldId = t.StatusId;
+    UPDATE e SET e.FromStatusId = m.NewId FROM dbo.TicketEvents e JOIN #TicketStatusMap m ON m.OldId = e.FromStatusId;
+    UPDATE e SET e.ToStatusId = m.NewId FROM dbo.TicketEvents e JOIN #TicketStatusMap m ON m.OldId = e.ToStatusId;
+    UPDATE t SET t.CategoryId = m.NewId FROM dbo.SupportTickets t JOIN #TicketCategoryMap m ON m.OldId = t.CategoryId;
+    UPDATE t SET t.PriorityId = m.NewId FROM dbo.SupportTickets t JOIN #TicketPriorityMap m ON m.OldId = t.PriorityId;
+
+    -- 4. Recreate the two defaults with the new values.
+    IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_SupportTickets_Priority')
+        ALTER TABLE dbo.SupportTickets DROP CONSTRAINT DF_SupportTickets_Priority;
+    ALTER TABLE dbo.SupportTickets ADD CONSTRAINT DF_SupportTickets_Priority
+        DEFAULT ('B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2') FOR PriorityId;
+    IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_SupportTickets_Status')
+        ALTER TABLE dbo.SupportTickets DROP CONSTRAINT DF_SupportTickets_Status;
+    ALTER TABLE dbo.SupportTickets ADD CONSTRAINT DF_SupportTickets_Status
+        DEFAULT ('7C1E4A92-3B58-4D06-A1F7-E29D5C08B413') FOR StatusId;
+
+    -- 5. Remove the old rows.
+    DELETE s FROM dbo.TicketStatuses s JOIN #TicketStatusMap m ON m.OldId = s.StatusId;
+    DELETE c FROM dbo.TicketCategories c JOIN #TicketCategoryMap m ON m.OldId = c.CategoryId;
+    DELETE p FROM dbo.TicketPriorities p JOIN #TicketPriorityMap m ON m.OldId = p.PriorityId;
+
+    COMMIT;
+    DROP TABLE #TicketStatusMap, #TicketCategoryMap, #TicketPriorityMap;
+END;
 GO
 
 /* ==================================================================
@@ -740,9 +913,9 @@ GO
    TicketEvents rows that recorded a transition to/from it keep working.
 ================================================================== */
 UPDATE dbo.SupportTickets
-SET StatusId = '40000000-0000-0000-0000-000000000005', -- Closed
+SET StatusId = '91E7C3B0-2A5F-4D68-86B1-F4C0A93D5E27', -- Closed
     UpdatedAt = SYSUTCDATETIME()
-WHERE StatusId = '40000000-0000-0000-0000-000000000003'; -- Resolved
+WHERE StatusId = '3F9A27D5-C6E0-4B81-9A44-B8D2E51F7A06'; -- Resolved
 GO
 
 /* ==================================================================

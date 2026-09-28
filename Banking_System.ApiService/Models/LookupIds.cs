@@ -5,42 +5,42 @@ namespace Banking_System.ApiService.Models;
 
 public static class RoleIds
 {
-    public static readonly Guid Customer = new("10000000-0000-0000-0000-000000000001");
-    public static readonly Guid Employee = new("10000000-0000-0000-0000-000000000002");
-    public static readonly Guid Admin = new("10000000-0000-0000-0000-000000000003");
+    public static readonly Guid Customer = new("2AD39D82-4527-421F-BC48-0024F41392C3");
+    public static readonly Guid Employee = new("8AFC0CD1-50D7-4CDE-9555-C336E07C632E");
+    public static readonly Guid Admin = new("6B7A8B89-B9A0-4B50-B800-3806C6FDAB09");
 }
 
 public static class StatusIds
 {
-    public static readonly Guid Active = new("20000000-0000-0000-0000-000000000001");
-    public static readonly Guid Inactive = new("20000000-0000-0000-0000-000000000002");
+    public static readonly Guid Active = new("29394BF4-EB03-4808-B2B4-5452F352D506");
+    public static readonly Guid Inactive = new("036BA01A-4FD0-4AB4-8A43-21B08A9DC67F");
 }
 
 public static class OtpPurposeIds
 {
-    public static readonly Guid PasswordReset = new("30000000-0000-0000-0000-000000000001");
-    public static readonly Guid UsernameRecovery = new("30000000-0000-0000-0000-000000000002");
+    public static readonly Guid PasswordReset = new("BD3B00CA-D8E3-4B4A-9B98-90E5B7F58B50");
+    public static readonly Guid UsernameRecovery = new("2E8909F7-34EF-4E74-8479-7A4A2FEE9D93");
 }
 
 public static class TicketStatusIds
 {
-    public static readonly Guid Open = new("40000000-0000-0000-0000-000000000001");
-    public static readonly Guid UnderReview = new("40000000-0000-0000-0000-000000000002");
-    public static readonly Guid Rejected = new("40000000-0000-0000-0000-000000000004");
-    public static readonly Guid Closed = new("40000000-0000-0000-0000-000000000005");
+    public static readonly Guid Open = new("7C1E4A92-3B58-4D06-A1F7-E29D5C08B413");
+    public static readonly Guid UnderReview = new("D48B60F3-91A2-4E7C-8D35-0F6A7B1C92E8");
+    public static readonly Guid Rejected = new("A6250E8B-47D3-4F19-B3C8-51E9D07A2C64");
+    public static readonly Guid Closed = new("91E7C3B0-2A5F-4D68-86B1-F4C0A93D5E27");
 }
 
 public static class TicketCategoryIds
 {
-    public static readonly Guid TransactionDispute = new("50000000-0000-0000-0000-000000000001");
-    public static readonly Guid TransactionIssue = new("50000000-0000-0000-0000-000000000002");
-    public static readonly Guid Security = new("50000000-0000-0000-0000-000000000003");
-    public static readonly Guid General = new("50000000-0000-0000-0000-000000000004");
+    public static readonly Guid TransactionDispute = new("5B03D8F1-E6A4-4297-9C5E-17A8B4D2F096");
+    public static readonly Guid TransactionIssue = new("E2749A6C-0D81-4B35-A7F3-C96B2E80D1A5");
+    public static readonly Guid Security = new("08C5F7A3-B19E-46D2-8E04-7D3A6F5B9C12");
+    public static readonly Guid General = new("F61D2B84-5C97-4A03-B5E8-2A90C7E1D34F");
 }
 
 public static class TicketPriorityIds
 {
-    public static readonly Guid Low = new("60000000-0000-0000-0000-000000000001");
-    public static readonly Guid Normal = new("60000000-0000-0000-0000-000000000002");
-    public static readonly Guid High = new("60000000-0000-0000-0000-000000000003");
+    public static readonly Guid Low = new("4A8E19C7-D0F3-4B62-97A5-6E2B8C3F1D80");
+    public static readonly Guid Normal = new("B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2");
+    public static readonly Guid High = new("69D0A4E5-F2B7-4C18-8B36-C5E90A7D2F41");
 }
