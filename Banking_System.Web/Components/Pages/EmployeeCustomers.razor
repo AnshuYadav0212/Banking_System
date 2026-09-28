@@ -1,0 +1,290 @@
+@page "/employee/customers"
+@attribute [Authorize(Roles = "Employee,Admin")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Customers
+@using Banking_System.Web.Services.Customers
+@inject CustomerDirectoryApiClient Customers
+
+<PageTitle>Customer accounts | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page customers-page">
+    <div class="customers-header">
+        <h1>Customer accounts</h1>
+        <p class="text-muted mb-0">Review customers and their banking accounts. Personal details are masked.</p>
+    </div>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a>.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else
+    {
+        @* Plain GET form (static server rendering): the dropdowns submit it themselves. *@
+        <form method="get" action="/employee/customers" class="customers-filters card">
+            <div class="customers-search">
+                <label class="form-label" for="q">Search</label>
+                <input class="form-control" id="q" name="q" type="search" value="@Search"
+                       placeholder="Name, customer ID, phone or email" autocomplete="off" />
+            </div>
+
+            <div class="customers-select">
+                <label class="form-label" for="status">Status</label>
+                <select class="form-select" id="status" name="status" onchange="this.form.submit()">
+                    <option value="" selected="@(Status is null)">All statuses</option>
+                    @foreach (var s in StatusOptions)
+                    {
+                        <option value="@s" selected="@(Status == s)">@s</option>
+                    }
+                </select>
+            </div>
+
+            <div class="customers-select">
+                <label class="form-label" for="online">Online banking</label>
+                <select class="form-select" id="online" name="online" onchange="this.form.submit()">
+                    <option value="" selected="@(Online is null)">All customers</option>
+                    <option value="registered" selected="@(Online == "registered")">Registered</option>
+                    <option value="not-registered" selected="@(Online == "not-registered")">Not registered</option>
+                </select>
+            </div>
+
+            <div class="customers-actions">
+                <button class="btn btn-primary" type="submit">Search</button>
+                @if (HasFilters)
+                {
+                    <a class="btn btn-outline-secondary" href="/employee/customers">Clear</a>
+                }
+            </div>
+        </form>
+
+        @if (_result is null || _result.Items.Count == 0)
+        {
+            <div class="card customers-empty">
+                <p class="text-muted mb-0">No customers match these filters.</p>
+            </div>
+        }
+        else
+        {
+            <div class="card customers-table-card">
+                <div class="table-responsive">
+                    <table class="table customers-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Customer ID</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th class="text-end">Accounts</th>
+                                <th class="text-end">Total balance</th>
+                                <th>Online banking</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in _result.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="customers-person">
+                                            <span class="customers-avatar">@Initial(c.FullName)</span>
+                                            <span class="fw-semibold">@c.FullName</span>
+                                        </span>
+                                    </td>
+                                    <td><code class="customers-mask">@c.MaskedCif</code></td>
+                                    <td class="text-nowrap"><span class="customers-mask">@c.MaskedPhone</span></td>
+                                    <td class="text-nowrap">
+                                        @if (c.MaskedEmail is { } email)
+                                        {
+                                            <span class="customers-mask">@email</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">&mdash;</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">@c.AccountCount</td>
+                                    <td class="text-end text-nowrap">@Money(c.TotalBalance)</td>
+                                    <td>
+                                        <span class="badge @(c.HasOnlineBanking ? "text-bg-success" : "text-bg-secondary")">
+                                            @(c.HasOnlineBanking ? "Registered" : "Not registered")
+                                        </span>
+                                    </td>
+                                    <td><span class="badge @StatusBadge(c.Status)">@c.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="customers-footer">
+                    <span class="text-muted small">
+                        Showing @(_first)–@(_first + _result.Items.Count - 1) of @_result.TotalCount
+                        @(_result.TotalCount == 1 ? "customer" : "customers")
+                    </span>
+
+                    @if (_pageCount > 1)
+                    {
+                        <nav class="customers-pager" aria-label="Customer pages">
+                            <a class="btn btn-sm btn-outline-secondary @(_page <= 1 ? "disabled" : "")"
+                               href="@PageHref(_page - 1)" aria-label="Previous page">&lsaquo;</a>
+                            @foreach (var p in PageWindow())
+                            {
+                                @if (p == 0)
+                                {
+                                    <span class="customers-gap">&hellip;</span>
+                                }
+                                else
+                                {
+                                    <a class="btn btn-sm @(p == _page ? "btn-primary" : "btn-outline-secondary")"
+                                       href="@PageHref(p)">@p</a>
+                                }
+                            }
+                            <a class="btn btn-sm btn-outline-secondary @(_page >= _pageCount ? "disabled" : "")"
+                               href="@PageHref(_page + 1)" aria-label="Next page">&rsaquo;</a>
+                        </nav>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private const int PageSize = 10;
+
+    private static readonly string[] StatusOptions = ["Active", "Inactive", "Locked"];
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "q")]
+    private string? Search { get; set; }
+
+    [SupplyParameterFromQuery(Name = "status")]
+    private string? Status { get; set; }
+
+    [SupplyParameterFromQuery(Name = "online")]
+    private string? Online { get; set; }
+
+    [SupplyParameterFromQuery(Name = "page")]
+    private int? PageNumber { get; set; }
+
+    private CustomerAccountPage? _result;
+    private int _page = 1;
+    private int _pageCount = 1;
+    private int _first = 1;
+    private bool _sessionExpired;
+    private bool _unavailable;
+
+    private bool HasFilters =>
+        !string.IsNullOrWhiteSpace(Search) || Status is not null || Online is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The dropdowns submit "" for "All"; anything unrecognised is ignored too.
+        Status = StatusOptions.Contains(Status) ? Status : null;
+        Online = Online is "registered" or "not-registered" ? Online : null;
+
+        var token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        bool? online = Online switch
+        {
+            "registered" => true,
+            "not-registered" => false,
+            _ => null
+        };
+
+        try
+        {
+            _page = Math.Max(1, PageNumber ?? 1);
+            var result = await Customers.SearchAsync(token, Search, Status, online, _page, PageSize);
+
+            if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            // A page past the end (e.g. after narrowing the filters): fall back to the first page.
+            if (result.Success && result.Data is { Items.Count: 0, TotalCount: 0 } && _page > 1)
+            {
+                _page = 1;
+                result = await Customers.SearchAsync(token, Search, Status, online, _page, PageSize);
+            }
+
+            _result = result.Data;
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+            return;
+        }
+
+        if (_result is not null)
+        {
+            _pageCount = Math.Max(1, (int)Math.Ceiling(_result.TotalCount / (double)PageSize));
+            _first = (_page - 1) * PageSize + 1;
+        }
+    }
+
+    // 1 … 4 5 [6] 7 8 … 20 - 0 stands for an ellipsis.
+    private IEnumerable<int> PageWindow()
+    {
+        var pages = new List<int>();
+
+        for (var p = 1; p <= _pageCount; p++)
+        {
+            if (p == 1 || p == _pageCount || Math.Abs(p - _page) <= 2)
+            {
+                if (pages.Count > 0 && p - pages[^1] > 1)
+                {
+                    pages.Add(0);
+                }
+
+                pages.Add(p);
+            }
+        }
+
+        return pages;
+    }
+
+    private string PageHref(int page)
+    {
+        var parts = new[]
+        {
+            string.IsNullOrWhiteSpace(Search) ? null : $"q={Uri.EscapeDataString(Search.Trim())}",
+            Status is null ? null : $"status={Status}",
+            Online is null ? null : $"online={Online}",
+            page > 1 ? $"page={page}" : null
+        }.Where(p => p is not null);
+
+        return "/employee/customers" + (parts.Any() ? "?" + string.Join('&', parts) : "");
+    }
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : char.ToUpperInvariant(name.Trim()[0]).ToString();
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "Active" => "text-bg-success",
+        "Locked" => "text-bg-danger",
+        _ => "text-bg-secondary"
+    };
+
+    private static string Money(decimal value) => "₹" + value.ToString("N2", CultureInfo.InvariantCulture);
+}
