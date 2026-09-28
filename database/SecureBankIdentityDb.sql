@@ -456,6 +456,14 @@ BEGIN
             CONSTRAINT DF_Transactions_Status DEFAULT ('E5B30C72-A9D4-4F68-91E7-08C4D2A6B5F3')
             CONSTRAINT FK_Transactions_Status REFERENCES dbo.TransactionStatuses (StatusId),
 
+        -- Review lease for a Pending/Processing transaction: while set, only
+        -- AssignedToUserId may act on it until ReviewLockExpiresAt passes (same
+        -- pattern as SupportTickets.ReviewLockExpiresAt).
+        AssignedToUserId UNIQUEIDENTIFIER NULL
+            CONSTRAINT FK_Transactions_AssignedTo REFERENCES dbo.Users (UserId),
+
+        ReviewLockExpiresAt DATETIME2(3) NULL,
+
         CreatedAt DATETIME2(3) NOT NULL
             CONSTRAINT DF_Transactions_CreatedAt DEFAULT (SYSUTCDATETIME()),
 
@@ -931,6 +939,13 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Transactions_Status' AND object_id = OBJECT_ID(N'dbo.Transactions'))
     CREATE INDEX IX_Transactions_Status ON dbo.Transactions (StatusId, CreatedAt DESC);
+GO
+
+IF COL_LENGTH(N'dbo.Transactions', N'AssignedToUserId') IS NULL
+    ALTER TABLE dbo.Transactions ADD AssignedToUserId UNIQUEIDENTIFIER NULL
+        CONSTRAINT FK_Transactions_AssignedTo REFERENCES dbo.Users (UserId);
+IF COL_LENGTH(N'dbo.Transactions', N'ReviewLockExpiresAt') IS NULL
+    ALTER TABLE dbo.Transactions ADD ReviewLockExpiresAt DATETIME2(3) NULL;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Transactions_From' AND object_id = OBJECT_ID(N'dbo.Transactions'))
