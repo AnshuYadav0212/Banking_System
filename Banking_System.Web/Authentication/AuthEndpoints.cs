@@ -113,10 +113,10 @@ public static class AuthEndpoints
             principal,
             properties);
 
+        // Customer and Employee dashboards live on Home itself; Admin still has its own area.
         return result.Role switch
         {
-            "Customer" => Results.Redirect("/customer"),
-            "Employee" => Results.Redirect("/employee"),
+            "Customer" or "Employee" => Results.Redirect("/"),
             "Admin" => Results.Redirect("/admin/users"),
             _ => Results.Redirect("/access-denied")
         };
