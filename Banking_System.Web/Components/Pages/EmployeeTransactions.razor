@@ -1,0 +1,382 @@
+@page "/employee/transactions"
+@attribute [Authorize(Roles = "Employee,Admin")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Transactions
+@using Banking_System.Web.Services.Transactions
+@inject TransactionReviewApiClient Reviews
+
+<PageTitle>Transactions | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page transactions-page">
+    <div class="transactions-header">
+        <h1>Transactions</h1>
+        <p class="text-muted mb-0">Review transfers and approve the ones that need it.</p>
+    </div>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a>.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else
+    {
+        @if (_alert is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_alert</div>
+        }
+        @if (_notice is not null)
+        {
+            <div class="alert alert-success" role="alert">@_notice</div>
+        }
+
+        @if (_result is { } r)
+        {
+            <div class="stat-row">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-pending">&#8987;</div>
+                    <div>
+                        <div class="stat-value">@r.PendingCount</div>
+                        <div class="stat-label">Pending &middot; @Money(r.PendingTotal)</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-processing">&#128065;</div>
+                    <div>
+                        <div class="stat-value">@r.ProcessingCount</div>
+                        <div class="stat-label">Under review</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-completed">&#10003;</div>
+                    <div>
+                        <div class="stat-value">@r.CompletedCount</div>
+                        <div class="stat-label">Completed</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-rejected">&#10005;</div>
+                    <div>
+                        <div class="stat-value">@r.RejectedCount</div>
+                        <div class="stat-label">Rejected</div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* Plain GET form (static server rendering): the dropdowns submit it themselves. *@
+        <form method="get" action="/employee/transactions" class="transactions-filters card">
+            <div class="transactions-search">
+                <label class="form-label" for="q">Search</label>
+                <input class="form-control" id="q" name="q" type="search" value="@Search"
+                       placeholder="Transaction ID, account number or customer name" autocomplete="off" />
+            </div>
+
+            <div class="transactions-select">
+                <label class="form-label" for="status">Status</label>
+                <select class="form-select" id="status" name="status" onchange="this.form.submit()">
+                    <option value="" selected="@(Status is null)">All statuses</option>
+                    @foreach (var s in StatusOptions)
+                    {
+                        <option value="@s" selected="@(Status == s)">@s</option>
+                    }
+                </select>
+            </div>
+
+            <div class="transactions-select">
+                <label class="form-label" for="from">From date</label>
+                <input class="form-control" id="from" name="from" type="date" value="@From?.ToString("yyyy-MM-dd")"
+                       onchange="this.form.submit()" />
+            </div>
+
+            <div class="transactions-select">
+                <label class="form-label" for="to">To date</label>
+                <input class="form-control" id="to" name="to" type="date" value="@To?.ToString("yyyy-MM-dd")"
+                       onchange="this.form.submit()" />
+            </div>
+
+            <div class="transactions-actions">
+                <button class="btn btn-primary" type="submit">Search</button>
+                @if (HasFilters)
+                {
+                    <a class="btn btn-outline-secondary" href="/employee/transactions">Clear</a>
+                }
+            </div>
+        </form>
+
+        @if (_result is null || _result.Items.Count == 0)
+        {
+            <div class="card transactions-empty">
+                <p class="text-muted mb-0">No transactions match these filters.</p>
+            </div>
+        }
+        else
+        {
+            <div class="card transactions-table-card">
+                <div class="table-responsive">
+                    <table class="table transactions-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Transaction</th>
+                                <th>Date &amp; time</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th class="text-end">Amount</th>
+                                <th>Status</th>
+                                <th>Initiated by</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in _result.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <code class="transactions-ref">@Ref(t.TransactionId)</code>
+                                        @if (!string.IsNullOrWhiteSpace(t.Comment))
+                                        {
+                                            <div class="text-muted small text-truncate transactions-comment">@t.Comment</div>
+                                        }
+                                    </td>
+                                    <td class="text-nowrap">@Time(t.CreatedAt)</td>
+                                    <td>
+                                        <div>@t.FromCustomerName</div>
+                                        <div class="text-muted small">@t.FromAccountNumber</div>
+                                    </td>
+                                    <td>
+                                        <div>@t.ToCustomerName</div>
+                                        <div class="text-muted small">@t.ToAccountNumber</div>
+                                    </td>
+                                    <td class="text-end text-nowrap fw-semibold">@Money(t.Amount)</td>
+                                    <td>
+                                        <span class="badge @StatusBadge(t.Status)">@t.Status</span>
+                                        @if (t.Status == "Processing" && t.AssignedToUsername is { } who)
+                                        {
+                                            <div class="text-muted small">@who</div>
+                                        }
+                                    </td>
+                                    <td>@(t.InitiatedByUsername ?? "—")</td>
+                                    <td class="text-end">
+                                        @if (t.LockedByAnotherEmployee)
+                                        {
+                                            <span class="badge text-bg-secondary" title="@LockTitle(t)">Locked</span>
+                                        }
+                                        else if (t.Status == "Pending")
+                                        {
+                                            <a class="btn btn-sm btn-primary" href="/employee/transactions/@t.TransactionId">Review</a>
+                                        }
+                                        else if (t.Status == "Processing")
+                                        {
+                                            <a class="btn btn-sm btn-outline-primary" href="/employee/transactions/@t.TransactionId">Continue review</a>
+                                        }
+                                        else
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary" href="/employee/transactions/@t.TransactionId">View</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="transactions-footer">
+                    <span class="text-muted small">
+                        Showing @(_first)–@(_first + _result.Items.Count - 1) of @_result.TotalCount
+                        @(_result.TotalCount == 1 ? "transaction" : "transactions")
+                    </span>
+
+                    @if (_pageCount > 1)
+                    {
+                        <nav class="transactions-pager" aria-label="Transaction pages">
+                            <a class="btn btn-sm btn-outline-secondary @(_page <= 1 ? "disabled" : "")"
+                               href="@PageHref(_page - 1)" aria-label="Previous page">&lsaquo;</a>
+                            @foreach (var p in PageWindow())
+                            {
+                                @if (p == 0)
+                                {
+                                    <span class="transactions-gap">&hellip;</span>
+                                }
+                                else
+                                {
+                                    <a class="btn btn-sm @(p == _page ? "btn-primary" : "btn-outline-secondary")"
+                                       href="@PageHref(p)">@p</a>
+                                }
+                            }
+                            <a class="btn btn-sm btn-outline-secondary @(_page >= _pageCount ? "disabled" : "")"
+                               href="@PageHref(_page + 1)" aria-label="Next page">&rsaquo;</a>
+                        </nav>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private const int PageSize = 10;
+
+    private static readonly string[] StatusOptions = ["Pending", "Processing", "Completed", "Rejected"];
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "q")]
+    private string? Search { get; set; }
+
+    [SupplyParameterFromQuery(Name = "status")]
+    private string? Status { get; set; }
+
+    [SupplyParameterFromQuery(Name = "from")]
+    private DateOnly? From { get; set; }
+
+    [SupplyParameterFromQuery(Name = "to")]
+    private DateOnly? To { get; set; }
+
+    [SupplyParameterFromQuery(Name = "page")]
+    private int? PageNumber { get; set; }
+
+    [SupplyParameterFromQuery(Name = "ok")]
+    private string? Ok { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    private TransactionQueuePage? _result;
+    private int _page = 1;
+    private int _pageCount = 1;
+    private int _first = 1;
+    private bool _sessionExpired;
+    private bool _unavailable;
+    private string? _alert;
+    private string? _notice;
+
+    private bool HasFilters =>
+        !string.IsNullOrWhiteSpace(Search) || Status is not null || From is not null || To is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Status = StatusOptions.Contains(Status) ? Status : null;
+        ApplyQueryFeedback();
+
+        var token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            _page = Math.Max(1, PageNumber ?? 1);
+            var result = await Reviews.SearchQueueAsync(token, Search, Status, From, To, _page, PageSize);
+
+            if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            if (result.Success && result.Data is { Items.Count: 0, TotalCount: 0 } && _page > 1)
+            {
+                _page = 1;
+                result = await Reviews.SearchQueueAsync(token, Search, Status, From, To, _page, PageSize);
+            }
+
+            _result = result.Data;
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+            return;
+        }
+
+        if (_result is not null)
+        {
+            _pageCount = Math.Max(1, (int)Math.Ceiling(_result.TotalCount / (double)PageSize));
+            _first = _result.TotalCount == 0 ? 0 : (_page - 1) * PageSize + 1;
+        }
+    }
+
+    private void ApplyQueryFeedback()
+    {
+        if (Ok is not null)
+        {
+            _notice = "Done - the transaction was updated.";
+        }
+
+        _alert = Error switch
+        {
+            null => null,
+            "Locked" => "Another employee is reviewing this transaction right now. Try again once their review lease (1 minute) has lapsed.",
+            "InvalidTransition" => "That action no longer applies - the transaction's status has since changed.",
+            "InsufficientFunds" => "The account's balance no longer covers this amount. Reject the transaction, or wait for the balance to be topped up.",
+            "AccountInactive" => "One of the accounts is no longer active.",
+            "unavailable" => "The banking API was unavailable when that action was submitted. Try again.",
+            _ => "That action could not be completed."
+        };
+    }
+
+    private IEnumerable<int> PageWindow()
+    {
+        var pages = new List<int>();
+
+        for (var p = 1; p <= _pageCount; p++)
+        {
+            if (p == 1 || p == _pageCount || Math.Abs(p - _page) <= 2)
+            {
+                if (pages.Count > 0 && p - pages[^1] > 1)
+                {
+                    pages.Add(0);
+                }
+
+                pages.Add(p);
+            }
+        }
+
+        return pages;
+    }
+
+    private string PageHref(int page) => BuildUrl(page);
+
+    private string BuildUrl(int page)
+    {
+        var parts = new[]
+        {
+            string.IsNullOrWhiteSpace(Search) ? null : $"q={Uri.EscapeDataString(Search.Trim())}",
+            Status is null ? null : $"status={Status}",
+            From is null ? null : $"from={From:yyyy-MM-dd}",
+            To is null ? null : $"to={To:yyyy-MM-dd}",
+            page > 1 ? $"page={page}" : null
+        }.Where(p => p is not null);
+
+        return "/employee/transactions" + (parts.Any() ? "?" + string.Join('&', parts) : "");
+    }
+
+    private static string LockTitle(TransactionQueueRow t) =>
+        t.AssignedToUsername is { } who ? $"Being reviewed by {who}" : "Being reviewed by another employee";
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "Pending" => "text-bg-warning",
+        "Processing" => "text-bg-info",
+        "Rejected" => "text-bg-danger",
+        _ => "text-bg-success"
+    };
+
+    private static string Ref(Guid id) => "TXN-" + id.ToString("N")[..8].ToUpperInvariant();
+
+    private static string Time(DateTime utc) =>
+        utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+
+    private static string Money(decimal value) => "₹" + value.ToString("N2", CultureInfo.InvariantCulture);
+}

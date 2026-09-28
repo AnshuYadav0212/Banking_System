@@ -1,0 +1,146 @@
+.transactions-header {
+    margin-bottom: 1.25rem;
+}
+
+.stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .85rem;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 900px) {
+    .stat-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .9rem 1.1rem;
+    border-radius: 1rem;
+    background: var(--bs-card-bg, #fff);
+    border: 1px solid var(--bs-border-color);
+}
+
+.stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: none;
+    border-radius: .75rem;
+    font-size: 1.1rem;
+}
+
+.stat-icon-pending { background: rgba(255, 193, 7, .18); color: #b8860b; }
+.stat-icon-processing { background: rgba(13, 202, 240, .18); color: #0a94ab; }
+.stat-icon-completed { background: rgba(25, 135, 84, .18); color: #198754; }
+.stat-icon-rejected { background: rgba(220, 53, 69, .18); color: #dc3545; }
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.stat-label {
+    font-size: .78rem;
+    color: var(--bs-secondary-color);
+}
+
+.transactions-filters {
+    /* Bootstrap's .card is a column flexbox; this one is a row of fields. */
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    border-radius: 1rem;
+}
+
+.transactions-search {
+    flex: 1 1 16rem;
+}
+
+.transactions-select {
+    flex: 0 1 10rem;
+    min-width: 8.5rem;
+}
+
+.transactions-filters .form-label {
+    margin-bottom: .25rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.transactions-actions {
+    display: flex;
+    gap: .5rem;
+}
+
+.transactions-table-card,
+.transactions-empty {
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.transactions-empty {
+    padding: 2rem;
+    text-align: center;
+}
+
+.transactions-table {
+    --bs-table-bg: transparent;
+}
+
+.transactions-table thead th {
+    padding: .85rem 1rem;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.transactions-table td {
+    padding: .9rem 1rem;
+    vertical-align: top;
+}
+
+.transactions-ref {
+    font-weight: 600;
+}
+
+.transactions-comment {
+    max-width: 14rem;
+}
+
+.transactions-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .85rem 1rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.transactions-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem;
+}
+
+.transactions-gap {
+    padding: 0 .25rem;
+    color: var(--bs-secondary-color);
+}

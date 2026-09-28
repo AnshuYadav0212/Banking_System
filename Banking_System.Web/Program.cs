@@ -6,6 +6,7 @@ using Banking_System.Web.Services.Banking;
 using Banking_System.Web.Services.Customers;
 using Banking_System.Web.Services.Profile;
 using Banking_System.Web.Services.Tickets;
+using Banking_System.Web.Services.Transactions;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -40,6 +41,11 @@ builder.Services.AddHttpClient<CustomerDirectoryApiClient>(client =>
 });
 
 builder.Services.AddHttpClient<ProfileApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https+http://apiservice");
+});
+
+builder.Services.AddHttpClient<TransactionReviewApiClient>(client =>
 {
     client.BaseAddress = new Uri("https+http://apiservice");
 });
@@ -94,6 +100,7 @@ app.UseOutputCache();
 
 app.MapAuthEndpoints();
 app.MapTicketEndpoints();
+app.MapTransactionReviewEndpoints();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

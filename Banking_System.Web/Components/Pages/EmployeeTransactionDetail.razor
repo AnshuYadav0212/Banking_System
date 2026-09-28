@@ -1,0 +1,279 @@
+@page "/employee/transactions/{TransactionId:guid}"
+@attribute [Authorize(Roles = "Employee,Admin")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Transactions
+@using Banking_System.Web.Services.Transactions
+@inject TransactionReviewApiClient Reviews
+
+<PageTitle>Transaction @Ref(TransactionId) | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page transaction-detail-page">
+    <a href="/employee/transactions" class="btn btn-sm btn-outline-secondary mb-3">&larr; Back to transactions</a>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a>.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else if (_notFound)
+    {
+        <div class="alert alert-warning" role="alert">That transaction does not exist.</div>
+    }
+    else if (_detail is { } t)
+    {
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+            <div>
+                <div class="text-muted small">Transaction @Ref(TransactionId)</div>
+                <h1 class="h3 mb-0">@Money(t.Amount)</h1>
+            </div>
+            <span class="badge fs-6 @StatusBadge(t.Status)">@t.Status</span>
+        </div>
+
+        @if (_alert is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_alert</div>
+        }
+        @if (_notice is not null)
+        {
+            <div class="alert alert-success" role="alert">@_notice</div>
+        }
+
+        @* Judgment calls for a large transfer hinge on whether the money is really
+           there and whether either side looks compromised, so both accounts get
+           their own card with the numbers an employee needs to decide. *@
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <div class="card h-100 review-account-card @(!t.FromAccountActive || !t.FromCustomerActive ? "review-account-flag" : "")">
+                    <div class="card-body">
+                        <h2 class="h6 text-muted mb-2">Sender</h2>
+                        <div class="fs-5 fw-semibold">@t.FromCustomerName</div>
+                        <div class="text-muted small mb-3">Account @t.FromAccountNumber</div>
+
+                        <dl class="row mb-0 small">
+                            <dt class="col-7 fw-normal text-muted">Available balance</dt>
+                            <dd class="col-5 text-end fw-semibold @(t.InsufficientFunds ? "text-danger" : "")">@Money(t.FromAccountBalance)</dd>
+
+                            <dt class="col-7 fw-normal text-muted">Account status</dt>
+                            <dd class="col-5 text-end">@StatusPill(t.FromAccountActive)</dd>
+
+                            <dt class="col-7 fw-normal text-muted">Customer status</dt>
+                            <dd class="col-5 text-end">@StatusPill(t.FromCustomerActive)</dd>
+                        </dl>
+
+                        @if (t.InsufficientFunds)
+                        {
+                            <div class="alert alert-danger small mt-3 mb-0" role="alert">
+                                The balance no longer covers this amount - approving would fail.
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card h-100 review-account-card @(!t.ToAccountActive || !t.ToCustomerActive ? "review-account-flag" : "")">
+                    <div class="card-body">
+                        <h2 class="h6 text-muted mb-2">Receiver</h2>
+                        <div class="fs-5 fw-semibold">@t.ToCustomerName</div>
+                        <div class="text-muted small mb-3">Account @t.ToAccountNumber</div>
+
+                        <dl class="row mb-0 small">
+                            <dt class="col-7 fw-normal text-muted">Available balance</dt>
+                            <dd class="col-5 text-end fw-semibold">@Money(t.ToAccountBalance)</dd>
+
+                            <dt class="col-7 fw-normal text-muted">Account status</dt>
+                            <dd class="col-5 text-end">@StatusPill(t.ToAccountActive)</dd>
+
+                            <dt class="col-7 fw-normal text-muted">Customer status</dt>
+                            <dd class="col-5 text-end">@StatusPill(t.ToCustomerActive)</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-3 text-muted fw-normal">Amount</dt>
+                    <dd class="col-9">@Money(t.Amount)</dd>
+
+                    <dt class="col-3 text-muted fw-normal">Submitted</dt>
+                    <dd class="col-9">@Time(t.CreatedAt)</dd>
+
+                    <dt class="col-3 text-muted fw-normal">Initiated by</dt>
+                    <dd class="col-9">@(t.InitiatedByUsername ?? "—")</dd>
+
+                    @if (!string.IsNullOrWhiteSpace(t.Comment))
+                    {
+                        <dt class="col-3 text-muted fw-normal">Note from sender</dt>
+                        <dd class="col-9 text-break">@t.Comment</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        <AuthorizeView Roles="Employee,Admin">
+            <Authorized>
+                @if (t.Status is "Completed" or "Rejected")
+                {
+                    @* Final states: nothing left to decide. *@
+                }
+                else if (t.LockedByAnotherEmployee)
+                {
+                    <div class="alert alert-warning mb-0" role="alert">
+                        Being reviewed by <strong>@t.AssignedToUsername</strong>. It is locked for other
+                        employees until @LockEnd(t) - reload the page after that to take it over.
+                    </div>
+                }
+                else
+                {
+                    <div class="card review-card">
+                        <div class="card-body">
+                            <h2 class="h6">Decision</h2>
+
+                            @if (t.Status == "Pending")
+                            {
+                                <p class="text-muted small">
+                                    Taking this for review locks it to you for 1 minute, so no other employee can act on it
+                                    at the same time. You can approve or reject once you hold it.
+                                </p>
+                                <form method="post" action="/employee/transactions/@TransactionId/start-review">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="returnUrl" value="/employee/transactions/@TransactionId" />
+                                    <button class="btn btn-outline-primary" type="submit">Start review</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <p class="text-muted small">
+                                    You are reviewing this transaction. Approving moves the money now; rejecting leaves
+                                    both balances untouched. Either action is final.
+                                </p>
+                                <div class="d-flex flex-wrap gap-3">
+                                    <form method="post" action="/employee/transactions/@TransactionId/approve">
+                                        <AntiforgeryToken />
+                                        <input type="hidden" name="returnUrl" value="/employee/transactions/@TransactionId" />
+                                        <button class="btn btn-success" type="submit" disabled="@t.InsufficientFunds">Approve</button>
+                                    </form>
+                                    <form method="post" action="/employee/transactions/@TransactionId/reject">
+                                        <AntiforgeryToken />
+                                        <input type="hidden" name="returnUrl" value="/employee/transactions/@TransactionId" />
+                                        <button class="btn btn-outline-danger" type="submit">Reject</button>
+                                    </form>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </Authorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid TransactionId { get; set; }
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "ok")]
+    private string? Ok { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    private TransactionReviewDetail? _detail;
+    private string? _alert;
+    private string? _notice;
+    private bool _sessionExpired;
+    private bool _unavailable;
+    private bool _notFound;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ApplyQueryFeedback();
+
+        var token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            var result = await Reviews.GetDetailAsync(token, TransactionId);
+
+            if (result.Error == "Unauthorized")
+            {
+                _sessionExpired = true;
+                return;
+            }
+
+            if (!result.Success || result.Data is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _detail = result.Data;
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private void ApplyQueryFeedback()
+    {
+        if (Ok is not null)
+        {
+            _notice = "Done - the transaction was updated.";
+        }
+
+        _alert = Error switch
+        {
+            null => null,
+            "Locked" => "Another employee is reviewing this transaction right now. Try again once their review lease (1 minute) has lapsed.",
+            "InvalidTransition" => "That action no longer applies - the transaction's status has since changed.",
+            "InsufficientFunds" => "The account's balance no longer covers this amount. Reject the transaction, or wait for the balance to be topped up.",
+            "AccountInactive" => "One of the accounts is no longer active.",
+            "unavailable" => "The banking API was unavailable when that action was submitted. Try again.",
+            _ => "That action could not be completed."
+        };
+    }
+
+    private static MarkupString StatusPill(bool active) => active
+        ? (MarkupString)"<span class=\"text-success fw-semibold\">Active</span>"
+        : (MarkupString)"<span class=\"text-danger fw-semibold\">Inactive</span>";
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "Pending" => "text-bg-warning",
+        "Processing" => "text-bg-info",
+        "Rejected" => "text-bg-danger",
+        _ => "text-bg-success"
+    };
+
+    private static string LockEnd(TransactionReviewDetail t) =>
+        t.ReviewLockExpiresAt is { } end ? end.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " UTC" : "shortly";
+
+    private static string Ref(Guid id) => "TXN-" + id.ToString("N")[..8].ToUpperInvariant();
+
+    private static string Time(DateTime utc) =>
+        utc.ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+
+    private static string Money(decimal value) => "₹" + value.ToString("N2", CultureInfo.InvariantCulture);
+}
