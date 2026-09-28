@@ -146,29 +146,29 @@ GO
 INSERT dbo.TicketStatuses (StatusId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('40000000-0000-0000-0000-000000000001', N'Open'),
-        ('40000000-0000-0000-0000-000000000002', N'UnderReview'),
-        ('40000000-0000-0000-0000-000000000003', N'Resolved'),
-        ('40000000-0000-0000-0000-000000000004', N'Rejected'),
-        ('40000000-0000-0000-0000-000000000005', N'Closed')) AS v (Id, Name)
-WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = v.Id);
+        ('7C1E4A92-3B58-4D06-A1F7-E29D5C08B413', N'Open'),
+        ('D48B60F3-91A2-4E7C-8D35-0F6A7B1C92E8', N'UnderReview'),
+        ('3F9A27D5-C6E0-4B81-9A44-B8D2E51F7A06', N'Resolved'),
+        ('A6250E8B-47D3-4F19-B3C8-51E9D07A2C64', N'Rejected'),
+        ('91E7C3B0-2A5F-4D68-86B1-F4C0A93D5E27', N'Closed')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = v.Id OR s.Name = v.Name);
 
 INSERT dbo.TicketCategories (CategoryId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('50000000-0000-0000-0000-000000000001', N'TransactionDispute'),
-        ('50000000-0000-0000-0000-000000000002', N'TransactionIssue'),
-        ('50000000-0000-0000-0000-000000000003', N'Security'),
-        ('50000000-0000-0000-0000-000000000004', N'General')) AS v (Id, Name)
-WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = v.Id);
+        ('5B03D8F1-E6A4-4297-9C5E-17A8B4D2F096', N'TransactionDispute'),
+        ('E2749A6C-0D81-4B35-A7F3-C96B2E80D1A5', N'TransactionIssue'),
+        ('08C5F7A3-B19E-46D2-8E04-7D3A6F5B9C12', N'Security'),
+        ('F61D2B84-5C97-4A03-B5E8-2A90C7E1D34F', N'General')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = v.Id OR c.Name = v.Name);
 
 INSERT dbo.TicketPriorities (PriorityId, Name)
 SELECT v.Id, v.Name
 FROM (VALUES
-        ('60000000-0000-0000-0000-000000000001', N'Low'),
-        ('60000000-0000-0000-0000-000000000002', N'Normal'),
-        ('60000000-0000-0000-0000-000000000003', N'High')) AS v (Id, Name)
-WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = v.Id);
+        ('4A8E19C7-D0F3-4B62-97A5-6E2B8C3F1D80', N'Low'),
+        ('B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2', N'Normal'),
+        ('69D0A4E5-F2B7-4C18-8B36-C5E90A7D2F41', N'High')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = v.Id OR p.Name = v.Name);
 GO
 
 /* ==================================================================
@@ -461,11 +461,11 @@ BEGIN
             CONSTRAINT FK_SupportTickets_Category REFERENCES dbo.TicketCategories (CategoryId),
 
         PriorityId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_SupportTickets_Priority DEFAULT ('60000000-0000-0000-0000-000000000002')
+            CONSTRAINT DF_SupportTickets_Priority DEFAULT ('B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2')
             CONSTRAINT FK_SupportTickets_Priority REFERENCES dbo.TicketPriorities (PriorityId),
 
         StatusId UNIQUEIDENTIFIER NOT NULL
-            CONSTRAINT DF_SupportTickets_Status DEFAULT ('40000000-0000-0000-0000-000000000001')
+            CONSTRAINT DF_SupportTickets_Status DEFAULT ('7C1E4A92-3B58-4D06-A1F7-E29D5C08B413')
             CONSTRAINT FK_SupportTickets_Status REFERENCES dbo.TicketStatuses (StatusId),
 
         Subject NVARCHAR(200) NOT NULL,
@@ -792,6 +792,90 @@ BEGIN
 END;
 GO
 
+/* ------------------------------------------------------------------
+   Rekey the ticket lookup tables (TicketStatuses 4000..., TicketCategories
+   5000..., TicketPriorities 6000...) the same way. Old value -> new value
+   is matched by name; the old row is renamed out of the way first, the new
+   row inserted, references repointed, then the old row deleted. The two
+   defaults on SupportTickets embed a lookup value, so they are recreated.
+------------------------------------------------------------------ */
+IF EXISTS (SELECT 1 FROM dbo.TicketStatuses WHERE StatusId IN
+        ('40000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000002',
+         '40000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000004',
+         '40000000-0000-0000-0000-000000000005'))
+   OR EXISTS (SELECT 1 FROM dbo.TicketCategories WHERE CategoryId LIKE '5000000_-0000-0000-0000-00000000000_')
+   OR EXISTS (SELECT 1 FROM dbo.TicketPriorities WHERE PriorityId LIKE '6000000_-0000-0000-0000-00000000000_')
+BEGIN
+    SET XACT_ABORT ON;
+    BEGIN TRAN;
+
+    CREATE TABLE #TicketStatusMap (OldId UNIQUEIDENTIFIER, NewId UNIQUEIDENTIFIER, Name NVARCHAR(20));
+    INSERT #TicketStatusMap VALUES
+        ('40000000-0000-0000-0000-000000000001', '7C1E4A92-3B58-4D06-A1F7-E29D5C08B413', N'Open'),
+        ('40000000-0000-0000-0000-000000000002', 'D48B60F3-91A2-4E7C-8D35-0F6A7B1C92E8', N'UnderReview'),
+        ('40000000-0000-0000-0000-000000000003', '3F9A27D5-C6E0-4B81-9A44-B8D2E51F7A06', N'Resolved'),
+        ('40000000-0000-0000-0000-000000000004', 'A6250E8B-47D3-4F19-B3C8-51E9D07A2C64', N'Rejected'),
+        ('40000000-0000-0000-0000-000000000005', '91E7C3B0-2A5F-4D68-86B1-F4C0A93D5E27', N'Closed');
+
+    CREATE TABLE #TicketCategoryMap (OldId UNIQUEIDENTIFIER, NewId UNIQUEIDENTIFIER, Name NVARCHAR(30));
+    INSERT #TicketCategoryMap VALUES
+        ('50000000-0000-0000-0000-000000000001', '5B03D8F1-E6A4-4297-9C5E-17A8B4D2F096', N'TransactionDispute'),
+        ('50000000-0000-0000-0000-000000000002', 'E2749A6C-0D81-4B35-A7F3-C96B2E80D1A5', N'TransactionIssue'),
+        ('50000000-0000-0000-0000-000000000003', '08C5F7A3-B19E-46D2-8E04-7D3A6F5B9C12', N'Security'),
+        ('50000000-0000-0000-0000-000000000004', 'F61D2B84-5C97-4A03-B5E8-2A90C7E1D34F', N'General');
+
+    CREATE TABLE #TicketPriorityMap (OldId UNIQUEIDENTIFIER, NewId UNIQUEIDENTIFIER, Name NVARCHAR(20));
+    INSERT #TicketPriorityMap VALUES
+        ('60000000-0000-0000-0000-000000000001', '4A8E19C7-D0F3-4B62-97A5-6E2B8C3F1D80', N'Low'),
+        ('60000000-0000-0000-0000-000000000002', 'B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2', N'Normal'),
+        ('60000000-0000-0000-0000-000000000003', '69D0A4E5-F2B7-4C18-8B36-C5E90A7D2F41', N'High');
+
+    -- 1. Move the old rows out of the way of the unique Name.
+    UPDATE s SET s.Name = s.Name + N'__rekey' FROM dbo.TicketStatuses s JOIN #TicketStatusMap m ON m.OldId = s.StatusId;
+    UPDATE c SET c.Name = c.Name + N'__rekey' FROM dbo.TicketCategories c JOIN #TicketCategoryMap m ON m.OldId = c.CategoryId;
+    UPDATE p SET p.Name = p.Name + N'__rekey' FROM dbo.TicketPriorities p JOIN #TicketPriorityMap m ON m.OldId = p.PriorityId;
+
+    -- 2. Insert the new rows.
+    INSERT dbo.TicketStatuses (StatusId, Name)
+    SELECT m.NewId, m.Name FROM #TicketStatusMap m
+    WHERE EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = m.OldId)
+      AND NOT EXISTS (SELECT 1 FROM dbo.TicketStatuses s WHERE s.StatusId = m.NewId);
+    INSERT dbo.TicketCategories (CategoryId, Name)
+    SELECT m.NewId, m.Name FROM #TicketCategoryMap m
+    WHERE EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = m.OldId)
+      AND NOT EXISTS (SELECT 1 FROM dbo.TicketCategories c WHERE c.CategoryId = m.NewId);
+    INSERT dbo.TicketPriorities (PriorityId, Name)
+    SELECT m.NewId, m.Name FROM #TicketPriorityMap m
+    WHERE EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = m.OldId)
+      AND NOT EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = m.NewId);
+
+    -- 3. Repoint every reference.
+    UPDATE t SET t.StatusId = m.NewId FROM dbo.SupportTickets t JOIN #TicketStatusMap m ON m.OldId = t.StatusId;
+    UPDATE e SET e.FromStatusId = m.NewId FROM dbo.TicketEvents e JOIN #TicketStatusMap m ON m.OldId = e.FromStatusId;
+    UPDATE e SET e.ToStatusId = m.NewId FROM dbo.TicketEvents e JOIN #TicketStatusMap m ON m.OldId = e.ToStatusId;
+    UPDATE t SET t.CategoryId = m.NewId FROM dbo.SupportTickets t JOIN #TicketCategoryMap m ON m.OldId = t.CategoryId;
+    UPDATE t SET t.PriorityId = m.NewId FROM dbo.SupportTickets t JOIN #TicketPriorityMap m ON m.OldId = t.PriorityId;
+
+    -- 4. Recreate the two defaults with the new values.
+    IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_SupportTickets_Priority')
+        ALTER TABLE dbo.SupportTickets DROP CONSTRAINT DF_SupportTickets_Priority;
+    ALTER TABLE dbo.SupportTickets ADD CONSTRAINT DF_SupportTickets_Priority
+        DEFAULT ('B37F5D02-8A64-4E91-A0C9-93D1E7B4F5A2') FOR PriorityId;
+    IF EXISTS (SELECT 1 FROM sys.default_constraints WHERE name = N'DF_SupportTickets_Status')
+        ALTER TABLE dbo.SupportTickets DROP CONSTRAINT DF_SupportTickets_Status;
+    ALTER TABLE dbo.SupportTickets ADD CONSTRAINT DF_SupportTickets_Status
+        DEFAULT ('7C1E4A92-3B58-4D06-A1F7-E29D5C08B413') FOR StatusId;
+
+    -- 5. Remove the old rows.
+    DELETE s FROM dbo.TicketStatuses s JOIN #TicketStatusMap m ON m.OldId = s.StatusId;
+    DELETE c FROM dbo.TicketCategories c JOIN #TicketCategoryMap m ON m.OldId = c.CategoryId;
+    DELETE p FROM dbo.TicketPriorities p JOIN #TicketPriorityMap m ON m.OldId = p.PriorityId;
+
+    COMMIT;
+    DROP TABLE #TicketStatusMap, #TicketCategoryMap, #TicketPriorityMap;
+END;
+GO
+
 /* ==================================================================
    Indexes. Each unique index doubles as the fast lookup for its column.
    They are filtered so older logins with no username / customer can coexist.
@@ -826,7 +910,7 @@ GO
    TicketEvents rows that recorded a transition to/from it keep working.
 ================================================================== */
 UPDATE dbo.SupportTickets
-SET StatusId = '40000000-0000-0000-0000-000000000005', -- Closed
+SET StatusId = '91E7C3B0-2A5F-4D68-86B1-F4C0A93D5E27', -- Closed
     UpdatedAt = SYSUTCDATETIME()
-WHERE StatusId = '40000000-0000-0000-0000-000000000003'; -- Resolved
+WHERE StatusId = '3F9A27D5-C6E0-4B81-9A44-B8D2E51F7A06'; -- Resolved
 GO

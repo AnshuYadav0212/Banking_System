@@ -6,18 +6,18 @@ namespace Banking_System.Web.Models.Tickets;
 // The database seeds exactly these GUIDs, so the two must stay in step.
 public static class TicketCategoryIds
 {
-    public static readonly Guid TransactionDispute = new("50000000-0000-0000-0000-000000000001");
-    public static readonly Guid TransactionIssue = new("50000000-0000-0000-0000-000000000002");
-    public static readonly Guid Security = new("50000000-0000-0000-0000-000000000003");
-    public static readonly Guid General = new("50000000-0000-0000-0000-000000000004");
+    public static readonly Guid TransactionDispute = new("5B03D8F1-E6A4-4297-9C5E-17A8B4D2F096");
+    public static readonly Guid TransactionIssue = new("E2749A6C-0D81-4B35-A7F3-C96B2E80D1A5");
+    public static readonly Guid Security = new("08C5F7A3-B19E-46D2-8E04-7D3A6F5B9C12");
+    public static readonly Guid General = new("F61D2B84-5C97-4A03-B5E8-2A90C7E1D34F");
 }
 
 public static class TicketStatusIds
 {
-    public static readonly Guid Open = new("40000000-0000-0000-0000-000000000001");
-    public static readonly Guid UnderReview = new("40000000-0000-0000-0000-000000000002");
-    public static readonly Guid Rejected = new("40000000-0000-0000-0000-000000000004");
-    public static readonly Guid Closed = new("40000000-0000-0000-0000-000000000005");
+    public static readonly Guid Open = new("7C1E4A92-3B58-4D06-A1F7-E29D5C08B413");
+    public static readonly Guid UnderReview = new("D48B60F3-91A2-4E7C-8D35-0F6A7B1C92E8");
+    public static readonly Guid Rejected = new("A6250E8B-47D3-4F19-B3C8-51E9D07A2C64");
+    public static readonly Guid Closed = new("91E7C3B0-2A5F-4D68-86B1-F4C0A93D5E27");
 }
 
 public static class TicketStatuses
