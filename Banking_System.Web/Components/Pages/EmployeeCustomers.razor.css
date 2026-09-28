@@ -1,0 +1,112 @@
+.customers-header {
+    margin-bottom: 1.25rem;
+}
+
+.customers-filters {
+    /* Bootstrap's .card is a column flexbox; this one is a row of fields. */
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    border-radius: 1rem;
+}
+
+.customers-search {
+    flex: 1 1 18rem;
+}
+
+.customers-select {
+    flex: 0 1 12rem;
+    min-width: 10rem;
+}
+
+.customers-filters .form-label {
+    margin-bottom: .25rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.customers-actions {
+    display: flex;
+    gap: .5rem;
+}
+
+.customers-table-card,
+.customers-empty {
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.customers-empty {
+    padding: 2rem;
+    text-align: center;
+}
+
+.customers-table {
+    --bs-table-bg: transparent;
+}
+
+.customers-table thead th {
+    padding: .85rem 1rem;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.customers-table td {
+    padding: .9rem 1rem;
+}
+
+.customers-person {
+    display: inline-flex;
+    align-items: center;
+    gap: .6rem;
+    white-space: nowrap;
+}
+
+.customers-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    font-size: .8rem;
+    font-weight: 700;
+    background: rgba(13, 110, 253, .15);
+    color: var(--bs-primary);
+}
+
+.customers-mask {
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-body-color);
+}
+
+.customers-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .85rem 1rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.customers-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem;
+}
+
+.customers-gap {
+    padding: 0 .25rem;
+    color: var(--bs-secondary-color);
+}
