@@ -12,11 +12,10 @@
 </div>
 
 <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Collapse or expand the navigation menu">
-    <svg class="sidebar-toggle-icon sidebar-toggle-icon-collapse" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M12.53 4.47a.75.75 0 0 1 0 1.06L8.06 10l4.47 4.47a.75.75 0 1 1-1.06 1.06l-5-5a.75.75 0 0 1 0-1.06l5-5a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd" />
-    </svg>
-    <svg class="sidebar-toggle-icon sidebar-toggle-icon-expand" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M7.47 15.53a.75.75 0 0 1 0-1.06L11.94 10 7.47 5.53a.75.75 0 0 1 1.06-1.06l5 5a.75.75 0 0 1 0 1.06l-5 5a.75.75 0 0 1-1.06 0Z" clip-rule="evenodd" />
+    @* One fixed hamburger icon for both states - it never swaps, so the
+       button's own contents never shift when the sidebar toggles. *@
+    <svg class="sidebar-toggle-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M2.5 5.5A.75.75 0 0 1 3.25 4.75h13.5a.75.75 0 0 1 0 1.5H3.25A.75.75 0 0 1 2.5 5.5Zm0 4.5a.75.75 0 0 1 .75-.75h13.5a.75.75 0 0 1 0 1.5H3.25A.75.75 0 0 1 2.5 10Zm0 4.5a.75.75 0 0 1 .75-.75h13.5a.75.75 0 0 1 0 1.5H3.25a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd" />
     </svg>
     <span class="nav-label">Collapse menu</span>
 </button>

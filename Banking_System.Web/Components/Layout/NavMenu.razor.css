@@ -121,23 +121,18 @@
     flex: none;
 }
 
-.sidebar-toggle-icon-expand {
-    display: none;
-}
-
-:root[data-sidebar="collapsed"] .sidebar-toggle-icon-collapse {
-    display: none;
-}
-
-:root[data-sidebar="collapsed"] .sidebar-toggle-icon-expand {
-    display: block;
-}
-
-/* ---- Collapsed state: icons only, centered, with a tooltip via title=. ---- */
+/* ---- Collapsed state: icons only, centered, with a tooltip via title=.
+   The section labels ("MY BANKING", "EMPLOYEE", ...) keep their box - only
+   their text is hidden with visibility, not display:none - so every nav
+   item below them stays on the exact same line in both states; nothing
+   shifts vertically when the sidebar toggles. ---- */
 @media (min-width: 641px) {
-    :root[data-sidebar="collapsed"] .nav-label,
-    :root[data-sidebar="collapsed"] .nav-section {
+    :root[data-sidebar="collapsed"] .nav-label {
         display: none;
+    }
+
+    :root[data-sidebar="collapsed"] .nav-section {
+        visibility: hidden;
     }
 
     :root[data-sidebar="collapsed"] .sidebar-toggle {
