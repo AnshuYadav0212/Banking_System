@@ -28,10 +28,6 @@
     }
     else
     {
-        <div class="alert alert-warning operations-notice" role="alert">
-            Freezing an account is logged against your account and blocks transfers on it immediately.
-        </div>
-
         @if (_alert is not null)
         {
             <div class="alert alert-danger" role="alert">@_alert</div>
@@ -43,55 +39,167 @@
 
         <div class="card operations-card">
             <div class="card-body">
-                <h2 class="h5">Account restrictions</h2>
-                <p class="text-muted small">Freeze an account to block transfers on it, or unfreeze one.</p>
+                <div class="ops-card-head">
+                    <h2 class="h5 mb-0">Freeze / Unfreeze Account</h2>
+                    <span class="ops-logged-note">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd" />
+                        </svg>
+                        Logged &amp; takes effect immediately
+                    </span>
+                </div>
 
-                <form method="get" action="/employee/operations" class="operations-search">
-                    <label class="form-label" for="acctQ">Account number, CIF or customer name</label>
-                    <div class="input-group">
-                        <input class="form-control" id="acctQ" name="acctQ" type="search" value="@AccountSearch"
-                               placeholder="e.g. 500040001" autocomplete="off" />
-                        <button class="btn btn-outline-secondary" type="submit">Search</button>
+                <div class="ops-step">
+                    <span class="ops-step-badge">1</span>
+                    <div class="ops-step-body">
+                        <h3>Find an account</h3>
+                        <p>Search by account number, CIF or customer name.</p>
+
+                        <form method="get" action="/employee/operations" class="ops-search">
+                            <div class="input-group">
+                                <span class="input-group-text ops-search-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" />
+                                    </svg>
+                                </span>
+                                <input class="form-control" id="acctQ" name="acctQ" type="search" value="@AccountSearch"
+                                       placeholder="e.g. 500040001" autocomplete="off" />
+                                <button class="btn btn-primary" type="submit">Search</button>
+                            </div>
+                        </form>
                     </div>
-                </form>
+                </div>
 
-                @if (AccountSearch is not { Length: >= 2 })
+                @if (AccountSearch is { Length: >= 2 })
                 {
-                    <p class="text-muted small mt-3 mb-0">Enter at least 2 characters to search.</p>
-                }
-                else if (_accounts.Count == 0)
-                {
-                    <p class="text-muted small mt-3 mb-0">No accounts match "@AccountSearch".</p>
-                }
-                else
-                {
-                    <div class="operations-results">
-                        @foreach (var a in _accounts)
-                        {
-                            <div class="operations-row">
-                                <div class="operations-row-main">
-                                    <div class="fw-semibold">@a.CustomerName</div>
-                                    <div class="text-muted small">
-                                        Account @a.MaskedAccountNumber &middot; CIF @a.MaskedCif &middot; @Money(a.AvailableBalance)
-                                    </div>
-                                </div>
-                                <div class="operations-row-action">
-                                    <span class="badge @(a.Active ? "text-bg-success" : "text-bg-danger") me-2">
-                                        @(a.Active ? "Active" : "Inactive")
-                                    </span>
-                                    <button type="button"
-                                            class="btn btn-sm @(a.Active ? "btn-outline-danger" : "btn-outline-success")"
-                                            data-bs-toggle="modal" data-bs-target="#accountStatusModal"
-                                            data-account-id="@a.AccountId"
-                                            data-target-active="@(!a.Active ? "true" : "false")"
-                                            data-customer-name="@a.CustomerName"
-                                            data-account-number="@a.MaskedAccountNumber">
-                                        @(a.Active ? "Freeze" : "Unfreeze")
-                                    </button>
+                    if (_accounts.Count == 0)
+                    {
+                        <p class="text-muted small ops-empty">No accounts match "@AccountSearch".</p>
+                    }
+                    else if (_selected is null)
+                    {
+                        <div class="ops-step">
+                            <span class="ops-step-badge">2</span>
+                            <div class="ops-step-body">
+                                <h3>Select an account</h3>
+                                <p>@_accounts.Count @(_accounts.Count == 1 ? "match" : "matches") for "@AccountSearch".</p>
+
+                                <div class="ops-results">
+                                    @foreach (var a in _accounts)
+                                    {
+                                        <a class="ops-result-row" href="@SelectHref(a.AccountId)">
+                                            <span class="ops-result-avatar">@Initial(a.CustomerName)</span>
+                                            <span class="ops-result-main">
+                                                <span class="ops-result-name">@a.CustomerName</span>
+                                                <span class="ops-result-sub">
+                                                    Account @a.MaskedAccountNumber &middot; CIF @a.MaskedCif &middot; @Money(a.AvailableBalance)
+                                                </span>
+                                            </span>
+                                            <span class="badge @(a.Active ? "text-bg-success" : "text-bg-danger")">
+                                                @(a.Active ? "Active" : "Inactive")
+                                            </span>
+                                            <span class="ops-result-chevron" aria-hidden="true">&rsaquo;</span>
+                                        </a>
+                                    }
                                 </div>
                             </div>
-                        }
-                    </div>
+                        </div>
+                    }
+                    else
+                    {
+                        var a = _selected;
+
+                        <div class="ops-step">
+                            <span class="ops-step-badge">2</span>
+                            <div class="ops-step-body">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                    <h3 class="mb-0">Account &amp; customer details</h3>
+                                    @if (_accounts.Count > 1)
+                                    {
+                                        <a href="@SearchOnlyHref" class="ops-change-link">&larr; Choose a different account</a>
+                                    }
+                                </div>
+
+                                <div class="ops-detail-card">
+                                    <div class="ops-detail-person">
+                                        <span class="ops-result-avatar ops-result-avatar-lg">@Initial(a.CustomerName)</span>
+                                        <div>
+                                            <div class="ops-detail-name">
+                                                @a.CustomerName
+                                                <span class="badge @(a.Active ? "text-bg-success" : "text-bg-danger") ms-1">
+                                                    @(a.Active ? "Active" : "Inactive")
+                                                </span>
+                                            </div>
+                                            <div class="text-muted small">CIF @a.MaskedCif</div>
+                                        </div>
+                                    </div>
+
+                                    <dl class="ops-detail-grid">
+                                        <div>
+                                            <dt>Account number</dt>
+                                            <dd>@a.MaskedAccountNumber</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Available balance</dt>
+                                            <dd>@Money(a.AvailableBalance)</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Account status</dt>
+                                            <dd>@(a.Active ? "Active" : "Inactive")</dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ops-step">
+                            <span class="ops-step-badge">3</span>
+                            <div class="ops-step-body">
+                                <h3>Select action</h3>
+
+                                @if (a.Active)
+                                {
+                                    <div class="ops-action-card ops-action-danger">
+                                        <span class="ops-action-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd" />
+                                            </svg>
+                                        </span>
+                                        <div class="ops-action-body">
+                                            <div class="ops-action-title">Freeze Account</div>
+                                            <p>Blocks all outgoing transactions immediately. The customer will not be able to transfer, withdraw or make payments.</p>
+                                        </div>
+                                        <button type="button" class="btn btn-danger ops-action-btn"
+                                                data-bs-toggle="modal" data-bs-target="#accountStatusModal"
+                                                data-account-id="@a.AccountId" data-target-active="false"
+                                                data-customer-name="@a.CustomerName" data-account-number="@a.MaskedAccountNumber">
+                                            Freeze Account
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="ops-action-card ops-action-success">
+                                        <span class="ops-action-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path d="M10 1a4.5 4.5 0 0 0-4.5 4.5v2.634A2 2 0 0 0 4 10v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6a2 2 0 0 0-1.5-1.937V5.5A4.5 4.5 0 0 0 10 1Zm3 6V5.5a3 3 0 1 0-6 0V7h6Z" />
+                                            </svg>
+                                        </span>
+                                        <div class="ops-action-body">
+                                            <div class="ops-action-title">Unfreeze Account</div>
+                                            <p>Restores full account functionality. The customer will be able to make transactions again.</p>
+                                        </div>
+                                        <button type="button" class="btn btn-success ops-action-btn"
+                                                data-bs-toggle="modal" data-bs-target="#accountStatusModal"
+                                                data-account-id="@a.AccountId" data-target-active="true"
+                                                data-customer-name="@a.CustomerName" data-account-number="@a.MaskedAccountNumber">
+                                            Unfreeze Account
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
                 }
             </div>
         </div>
@@ -129,6 +237,9 @@
     [SupplyParameterFromQuery(Name = "acctQ")]
     private string? AccountSearch { get; set; }
 
+    [SupplyParameterFromQuery(Name = "acct")]
+    private Guid? SelectedAccountId { get; set; }
+
     [SupplyParameterFromQuery(Name = "ok")]
     private string? Ok { get; set; }
 
@@ -136,6 +247,7 @@
     private string? Error { get; set; }
 
     private List<AccountOperationRow> _accounts = [];
+    private AccountOperationRow? _selected;
     private bool _sessionExpired;
     private bool _unavailable;
     private string? _alert;
@@ -166,6 +278,11 @@
                 }
 
                 _accounts = result.Data ?? [];
+
+                // A single match needs no extra click; otherwise wait for one to be chosen.
+                _selected = _accounts.Count == 1
+                    ? _accounts[0]
+                    : _accounts.FirstOrDefault(a => a.AccountId == SelectedAccountId);
             }
         }
         catch (HttpRequestException)
@@ -190,8 +307,17 @@
         };
     }
 
+    private string SelectHref(Guid accountId) =>
+        $"/employee/operations?acctQ={Uri.EscapeDataString(AccountSearch ?? "")}&acct={accountId}";
+
+    private string SearchOnlyHref =>
+        $"/employee/operations?acctQ={Uri.EscapeDataString(AccountSearch ?? "")}";
+
     private string CurrentUrl =>
         "/employee/operations" + (AccountSearch is { Length: > 0 } a ? $"?acctQ={Uri.EscapeDataString(a)}" : "");
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : char.ToUpperInvariant(name.Trim()[0]).ToString();
 
     private static string Money(decimal value) => "₹" + value.ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
 }
