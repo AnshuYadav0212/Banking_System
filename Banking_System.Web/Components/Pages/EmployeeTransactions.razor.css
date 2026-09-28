@@ -144,3 +144,37 @@
     padding: 0 .25rem;
     color: var(--bs-secondary-color);
 }
+
+/* ---- The table scrolls sideways on narrow screens; make that discoverable
+   instead of letting the cut-off columns look like missing data. ---- */
+.table-scroll-hint {
+    display: none;
+    margin: 0;
+    padding: .6rem 1rem 0;
+    font-size: .76rem;
+    color: var(--bs-secondary-color);
+    text-align: center;
+}
+
+@media (max-width: 767.98px) {
+    .table-scroll-hint {
+        display: block;
+    }
+}
+
+.table-responsive {
+    scrollbar-width: thin;
+}
+
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--bs-secondary-color);
+    border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: transparent;
+}

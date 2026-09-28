@@ -310,12 +310,24 @@ h1:focus {
     top: calc(100% + .6rem);
     right: 0;
     width: 15.5rem;
+    max-width: calc(100vw - 2rem);
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     padding: .5rem;
     z-index: 20;
+}
+
+/* Below 641px the top bar switches to justify-content: space-between (see
+   MainLayout.razor.css), which pushes the avatar to the far left instead of
+   the right. Anchoring the panel by its right edge then pushes most of it
+   off-screen to the left, so it anchors from the left edge here instead. */
+@media (max-width: 640.98px) {
+    .user-menu-panel {
+        right: auto;
+        left: 0;
+    }
 }
 
 .user-menu-header {
