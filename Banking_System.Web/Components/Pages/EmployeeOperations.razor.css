@@ -1,0 +1,50 @@
+.operations-header {
+    margin-bottom: 1.25rem;
+}
+
+.operations-notice {
+    margin-bottom: 1.25rem;
+}
+
+.operations-card {
+    border-radius: 1rem;
+    height: 100%;
+}
+
+.operations-search {
+    margin-top: .75rem;
+}
+
+.operations-search .form-label {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.operations-results {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+}
+
+.operations-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .75rem .9rem;
+    border-radius: .75rem;
+    border: 1px solid var(--bs-border-color);
+}
+
+.operations-row-main {
+    min-width: 0;
+}
+
+.operations-row-action {
+    display: flex;
+    align-items: center;
+    flex: none;
+}

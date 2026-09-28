@@ -86,6 +86,8 @@ builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<TransferService>();
 builder.Services.AddScoped<TransactionReviewService>();
 builder.Services.AddScoped<ICustomerDirectoryRepository, CustomerDirectoryRepository>();
+builder.Services.AddScoped<IBankingOperationsRepository, BankingOperationsRepository>();
+builder.Services.AddScoped<BankingOperationsService>();
 builder.Services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
 builder.Services.AddScoped<SupportTicketService>();
 builder.Services.AddScoped<ProfileService>();

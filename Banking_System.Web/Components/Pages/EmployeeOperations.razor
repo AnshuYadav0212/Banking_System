@@ -1,0 +1,197 @@
+@page "/employee/operations"
+@attribute [Authorize(Roles = "Employee,Admin")]
+@using Microsoft.AspNetCore.Authentication
+@using Banking_System.Web.Authentication
+@using Banking_System.Web.Models.Operations
+@using Banking_System.Web.Services.Operations
+@inject BankingOperationsApiClient Operations
+
+<PageTitle>Banking Operations | SecureBank</PageTitle>
+
+<div class="container py-4 transfer-page operations-page">
+    <div class="operations-header">
+        <h1>Banking Operations</h1>
+        <p class="text-muted mb-0">Freeze or unfreeze a customer's account. Takes effect immediately.</p>
+    </div>
+
+    @if (_sessionExpired)
+    {
+        <div class="alert alert-warning" role="alert">
+            Your session has expired. <a href="/login" class="alert-link">Sign in again</a>.
+        </div>
+    }
+    else if (_unavailable)
+    {
+        <div class="alert alert-danger" role="alert">
+            The banking API is unavailable. Try again in a moment.
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning operations-notice" role="alert">
+            Freezing an account is logged against your account and blocks transfers on it immediately.
+        </div>
+
+        @if (_alert is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_alert</div>
+        }
+        @if (_notice is not null)
+        {
+            <div class="alert alert-success" role="alert">@_notice</div>
+        }
+
+        <div class="card operations-card">
+            <div class="card-body">
+                <h2 class="h5">Account restrictions</h2>
+                <p class="text-muted small">Freeze an account to block transfers on it, or unfreeze one.</p>
+
+                <form method="get" action="/employee/operations" class="operations-search">
+                    <label class="form-label" for="acctQ">Account number, CIF or customer name</label>
+                    <div class="input-group">
+                        <input class="form-control" id="acctQ" name="acctQ" type="search" value="@AccountSearch"
+                               placeholder="e.g. 500040001" autocomplete="off" />
+                        <button class="btn btn-outline-secondary" type="submit">Search</button>
+                    </div>
+                </form>
+
+                @if (AccountSearch is not { Length: >= 2 })
+                {
+                    <p class="text-muted small mt-3 mb-0">Enter at least 2 characters to search.</p>
+                }
+                else if (_accounts.Count == 0)
+                {
+                    <p class="text-muted small mt-3 mb-0">No accounts match "@AccountSearch".</p>
+                }
+                else
+                {
+                    <div class="operations-results">
+                        @foreach (var a in _accounts)
+                        {
+                            <div class="operations-row">
+                                <div class="operations-row-main">
+                                    <div class="fw-semibold">@a.CustomerName</div>
+                                    <div class="text-muted small">
+                                        Account @a.MaskedAccountNumber &middot; CIF @a.MaskedCif &middot; @Money(a.AvailableBalance)
+                                    </div>
+                                </div>
+                                <div class="operations-row-action">
+                                    <span class="badge @(a.Active ? "text-bg-success" : "text-bg-danger") me-2">
+                                        @(a.Active ? "Active" : "Inactive")
+                                    </span>
+                                    <button type="button"
+                                            class="btn btn-sm @(a.Active ? "btn-outline-danger" : "btn-outline-success")"
+                                            data-bs-toggle="modal" data-bs-target="#accountStatusModal"
+                                            data-account-id="@a.AccountId"
+                                            data-target-active="@(!a.Active ? "true" : "false")"
+                                            data-customer-name="@a.CustomerName"
+                                            data-account-number="@a.MaskedAccountNumber">
+                                        @(a.Active ? "Freeze" : "Unfreeze")
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Shared modal: operations-confirm.js fills in the target and wording when a
+           row's button opens it, so only one real form exists on the page instead of
+           one per row. data-enhance="false" makes the browser do a normal full-page
+           post for this redirect-and-reload action, instead of Blazor's enhanced
+           (fetch-based) form handling, which does not expect it. *@
+        <div class="modal fade" id="accountStatusModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <form method="post" id="accountStatusForm" data-enhance="false" class="modal-content">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="active" id="accountStatusActive" />
+                    <input type="hidden" name="returnUrl" value="@CurrentUrl" />
+                    <div class="modal-header">
+                        <h2 class="modal-title h5" id="accountStatusTitle">Change account status</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="accountStatusBody"></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn" id="accountStatusConfirm">Confirm</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "acctQ")]
+    private string? AccountSearch { get; set; }
+
+    [SupplyParameterFromQuery(Name = "ok")]
+    private string? Ok { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    private List<AccountOperationRow> _accounts = [];
+    private bool _sessionExpired;
+    private bool _unavailable;
+    private string? _alert;
+    private string? _notice;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ApplyQueryFeedback();
+
+        var token = HttpContext is null ? null : await HttpContext.GetTokenAsync(BankingTokens.AccessToken);
+
+        if (string.IsNullOrEmpty(token))
+        {
+            _sessionExpired = true;
+            return;
+        }
+
+        try
+        {
+            if (AccountSearch is { Length: >= 2 })
+            {
+                var result = await Operations.SearchAccountsAsync(token, AccountSearch);
+
+                if (result.Error == "Unauthorized")
+                {
+                    _sessionExpired = true;
+                    return;
+                }
+
+                _accounts = result.Data ?? [];
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _unavailable = true;
+        }
+    }
+
+    private void ApplyQueryFeedback()
+    {
+        if (Ok is not null)
+        {
+            _notice = "Done - the status was updated.";
+        }
+
+        _alert = Error switch
+        {
+            null => null,
+            "NotFound" => "That account no longer exists.",
+            "unavailable" => "The banking API was unavailable when that action was submitted. Try again.",
+            _ => "That action could not be completed."
+        };
+    }
+
+    private string CurrentUrl =>
+        "/employee/operations" + (AccountSearch is { Length: > 0 } a ? $"?acctQ={Uri.EscapeDataString(a)}" : "");
+
+    private static string Money(decimal value) => "₹" + value.ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
+}

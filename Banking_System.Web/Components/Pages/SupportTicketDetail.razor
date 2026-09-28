@@ -121,7 +121,7 @@
                         <div class="d-flex flex-wrap gap-2">
                             @if (ticket.Status is "Open" or "UnderReview")
                             {
-                                <form method="post" action="/tickets/@TicketId/start-review">
+                                <form method="post" action="/tickets/@TicketId/start-review" data-enhance="false">
                                     <AntiforgeryToken />
                                     <button class="btn btn-outline-primary" type="submit">
                                         @(ticket.Status == "Open" ? "Start review" : "Take over / extend review")
@@ -134,7 +134,7 @@
                         {
                             <div class="row g-3 mt-1">
                                 <div class="col-md-6">
-                                    <form method="post" action="/tickets/@TicketId/resolve">
+                                    <form method="post" action="/tickets/@TicketId/resolve" data-enhance="false">
                                         <AntiforgeryToken />
                                         <label class="form-label" for="resolve-note">Resolution note</label>
                                         <textarea class="form-control" id="resolve-note" name="note" rows="2" maxlength="2000"></textarea>
@@ -142,7 +142,7 @@
                                     </form>
                                 </div>
                                 <div class="col-md-6">
-                                    <form method="post" action="/tickets/@TicketId/reject">
+                                    <form method="post" action="/tickets/@TicketId/reject" data-enhance="false">
                                         <AntiforgeryToken />
                                         <label class="form-label" for="reject-note">Rejection reason</label>
                                         <textarea class="form-control" id="reject-note" name="note" rows="2" maxlength="2000"></textarea>

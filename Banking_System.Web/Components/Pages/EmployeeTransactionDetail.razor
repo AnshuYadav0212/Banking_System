@@ -147,7 +147,7 @@
                                     Taking this for review locks it to you for 1 minute, so no other employee can act on it
                                     at the same time. You can approve or reject once you hold it.
                                 </p>
-                                <form method="post" action="/employee/transactions/@TransactionId/start-review">
+                                <form method="post" action="/employee/transactions/@TransactionId/start-review" data-enhance="false">
                                     <AntiforgeryToken />
                                     <input type="hidden" name="returnUrl" value="/employee/transactions/@TransactionId" />
                                     <button class="btn btn-outline-primary" type="submit">Start review</button>
@@ -160,12 +160,12 @@
                                     both balances untouched. Either action is final.
                                 </p>
                                 <div class="d-flex flex-wrap gap-3">
-                                    <form method="post" action="/employee/transactions/@TransactionId/approve">
+                                    <form method="post" action="/employee/transactions/@TransactionId/approve" data-enhance="false">
                                         <AntiforgeryToken />
                                         <input type="hidden" name="returnUrl" value="/employee/transactions/@TransactionId" />
                                         <button class="btn btn-success" type="submit" disabled="@t.InsufficientFunds">Approve</button>
                                     </form>
-                                    <form method="post" action="/employee/transactions/@TransactionId/reject">
+                                    <form method="post" action="/employee/transactions/@TransactionId/reject" data-enhance="false">
                                         <AntiforgeryToken />
                                         <input type="hidden" name="returnUrl" value="/employee/transactions/@TransactionId" />
                                         <button class="btn btn-outline-danger" type="submit">Reject</button>
