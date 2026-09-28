@@ -38,6 +38,14 @@ public static class TicketCategoryIds
     public static readonly Guid General = new("F61D2B84-5C97-4A03-B5E8-2A90C7E1D34F");
 }
 
+public static class TransactionStatusIds
+{
+    public static readonly Guid Pending = new("2C7E91B4-58D3-4A06-B9F2-D1A8E60C3745");
+    public static readonly Guid Processing = new("9F14A6D8-03BE-47C5-8A21-6E5B7D90C3F1");
+    public static readonly Guid Completed = new("E5B30C72-A9D4-4F68-91E7-08C4D2A6B5F3");
+    public static readonly Guid Rejected = new("6D82F5A1-C7E0-4B39-A4D6-3F19B8E20C74");
+}
+
 public static class TicketPriorityIds
 {
     public static readonly Guid Low = new("4A8E19C7-D0F3-4B62-97A5-6E2B8C3F1D80");

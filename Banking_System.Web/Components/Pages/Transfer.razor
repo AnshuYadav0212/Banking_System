@@ -33,17 +33,37 @@
 
         @if (_success is not null)
         {
-            <div class="alert alert-success success-panel" role="alert">
-                <div class="success-icon">&#10003;</div>
-                <div>
-                    <div class="fs-5"><strong>@Money(_success.Amount)</strong> sent to @_success.RecipientName</div>
-                    <div class="small mt-1">
-                        Reference <code>@Ref(_success.TransactionId)</code> &middot;
-                        @Time(_success.CreatedAt) &middot;
-                        new balance of @AccountNumberMasking.Mask(_success.FromAccountNumber): @Money(_success.NewBalance)
+            @if (_success.IsPending)
+            {
+                <div class="alert alert-warning success-panel" role="alert">
+                    <div class="success-icon">&#8987;</div>
+                    <div>
+                        <div class="fs-5">
+                            Your transfer of <strong>@Money(_success.Amount)</strong> to @_success.RecipientName
+                            is <strong>waiting for approval</strong>
+                        </div>
+                        <div class="small mt-1">
+                            Transfers of ₹1,00,000 or more are reviewed by our team before they are sent.
+                            No money has left your account yet. Reference <code>@Ref(_success.TransactionId)</code> &middot;
+                            @Time(_success.CreatedAt)
+                        </div>
                     </div>
                 </div>
-            </div>
+            }
+            else
+            {
+                <div class="alert alert-success success-panel" role="alert">
+                    <div class="success-icon">&#10003;</div>
+                    <div>
+                        <div class="fs-5"><strong>@Money(_success.Amount)</strong> sent to @_success.RecipientName</div>
+                        <div class="small mt-1">
+                            Reference <code>@Ref(_success.TransactionId)</code> &middot;
+                            @Time(_success.CreatedAt) &middot;
+                            new balance of @AccountNumberMasking.Mask(_success.FromAccountNumber): @Money(_success.NewBalance)
+                        </div>
+                    </div>
+                </div>
+            }
         }
 
         @if (_alert is not null)

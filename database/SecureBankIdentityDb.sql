@@ -171,6 +171,32 @@ FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM dbo.TicketPriorities p WHERE p.PriorityId = v.Id OR p.Name = v.Name);
 GO
 
+/* ------------------------------------------------------------------
+   Transaction statuses. Small transfers complete at once; a large transfer
+   waits as Pending until an employee reviews it (Pending -> Processing ->
+   Completed, or Pending -> Rejected). Random GUID keys, like every lookup.
+------------------------------------------------------------------- */
+IF OBJECT_ID(N'dbo.TransactionStatuses', N'U') IS NULL
+    CREATE TABLE dbo.TransactionStatuses
+    (
+        StatusId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT PK_TransactionStatuses PRIMARY KEY,
+
+        Name NVARCHAR(20) NOT NULL
+            CONSTRAINT UQ_TransactionStatuses_Name UNIQUE
+    );
+GO
+
+INSERT dbo.TransactionStatuses (StatusId, Name)
+SELECT v.Id, v.Name
+FROM (VALUES
+        ('2C7E91B4-58D3-4A06-B9F2-D1A8E60C3745', N'Pending'),
+        ('9F14A6D8-03BE-47C5-8A21-6E5B7D90C3F1', N'Processing'),
+        ('E5B30C72-A9D4-4F68-91E7-08C4D2A6B5F3', N'Completed'),
+        ('6D82F5A1-C7E0-4B39-A4D6-3F19B8E20C74', N'Rejected')) AS v (Id, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TransactionStatuses s WHERE s.StatusId = v.Id OR s.Name = v.Name);
+GO
+
 /* ==================================================================
    Bank data
 ================================================================== */
@@ -425,6 +451,10 @@ BEGIN
 
         InitiatedByUserId UNIQUEIDENTIFIER NOT NULL
             CONSTRAINT FK_Transactions_User REFERENCES dbo.Users (UserId),
+
+        StatusId UNIQUEIDENTIFIER NOT NULL
+            CONSTRAINT DF_Transactions_Status DEFAULT ('E5B30C72-A9D4-4F68-91E7-08C4D2A6B5F3')
+            CONSTRAINT FK_Transactions_Status REFERENCES dbo.TransactionStatuses (StatusId),
 
         CreatedAt DATETIME2(3) NOT NULL
             CONSTRAINT DF_Transactions_CreatedAt DEFAULT (SYSUTCDATETIME()),
@@ -890,6 +920,17 @@ GO
 /* One online-banking login per bank customer. */
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Users_BankCustomerId' AND object_id = OBJECT_ID(N'dbo.Users'))
     CREATE UNIQUE INDEX UX_Users_BankCustomerId ON dbo.Users (BankCustomerId) WHERE BankCustomerId IS NOT NULL;
+GO
+
+/* Existing transfers all completed immediately, so the default (Completed) is right for them. */
+IF COL_LENGTH(N'dbo.Transactions', N'StatusId') IS NULL
+    ALTER TABLE dbo.Transactions ADD StatusId UNIQUEIDENTIFIER NOT NULL
+        CONSTRAINT DF_Transactions_Status DEFAULT ('E5B30C72-A9D4-4F68-91E7-08C4D2A6B5F3')
+        CONSTRAINT FK_Transactions_Status REFERENCES dbo.TransactionStatuses (StatusId);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Transactions_Status' AND object_id = OBJECT_ID(N'dbo.Transactions'))
+    CREATE INDEX IX_Transactions_Status ON dbo.Transactions (StatusId, CreatedAt DESC);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Transactions_From' AND object_id = OBJECT_ID(N'dbo.Transactions'))
