@@ -173,8 +173,13 @@
         /* Never collapse the sidebar for wide screens */
         display: block;
 
-        /* Allow sidebar to scroll for tall menus */
-        height: calc(100vh - 3.75rem);
+        /* Fills whatever room is left below the brand row and the collapse
+           button (rather than a hardcoded calc() that has to be kept in sync
+           with their height by hand), and scrolls independently within that -
+           a tall menu scrolls on its own, without ever moving the sidebar
+           itself or the page content. */
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
     }
 }
