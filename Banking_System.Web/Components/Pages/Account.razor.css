@@ -12,42 +12,57 @@
 
 .acct-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 16rem));
+    grid-template-columns: repeat(auto-fit, minmax(15.5rem, 18rem));
     gap: 1.1rem;
     margin-bottom: 1.75rem;
 }
 
 .acct-card {
-    padding: 1.35rem 1.5rem;
+    position: relative;
+    padding: 1.5rem 1.6rem 1.65rem;
     border-radius: var(--radius-lg);
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
-    transition: transform .15s ease, box-shadow .15s ease;
+    overflow: hidden;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.acct-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
 }
 
 .acct-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow);
+    border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
 }
 
 .acct-card-inactive {
     opacity: .7;
 }
 
+.acct-card-inactive::before {
+    background: var(--text-muted);
+}
+
 .acct-card-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 1.1rem;
 }
 
 .acct-card-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     border-radius: var(--radius);
     background: var(--primary-light);
     color: var(--primary);
@@ -55,24 +70,25 @@
 
 .acct-card-number {
     font-family: var(--font-display);
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 700;
-    letter-spacing: .04em;
-    color: var(--heading);
+    letter-spacing: .06em;
+    color: var(--text-muted);
 }
 
 .acct-card-balance-label {
-    margin-top: .9rem;
+    margin-top: 1.1rem;
     font-size: .78rem;
     color: var(--text-muted);
 }
 
 .acct-card-balance {
-    margin-top: .15rem;
+    margin-top: .2rem;
     font-family: var(--font-display);
-    font-size: 1.45rem;
+    font-size: 1.7rem;
     font-weight: 800;
-    color: var(--text);
+    letter-spacing: -.01em;
+    color: var(--heading);
 }
 
 .account-actions {
