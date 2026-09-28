@@ -475,6 +475,9 @@ BEGIN
 
         ResolutionNote NVARCHAR(2000) NULL,
 
+        -- Review lease: while UnderReview, only AssignedToUserId may act until this time passes.
+        ReviewLockExpiresAt DATETIME2(3) NULL,
+
         CreatedAt DATETIME2(3) NOT NULL
             CONSTRAINT DF_SupportTickets_CreatedAt DEFAULT (SYSUTCDATETIME()),
 
@@ -740,4 +743,13 @@ UPDATE dbo.SupportTickets
 SET StatusId = '40000000-0000-0000-0000-000000000005', -- Closed
     UpdatedAt = SYSUTCDATETIME()
 WHERE StatusId = '40000000-0000-0000-0000-000000000003'; -- Resolved
+GO
+
+/* ==================================================================
+   Review lease. Starting a review takes a short lease on the ticket
+   (AssignedToUserId + ReviewLockExpiresAt): until it expires nobody else
+   may act on it; afterwards another employee can take it over.
+================================================================== */
+IF COL_LENGTH(N'dbo.SupportTickets', N'ReviewLockExpiresAt') IS NULL
+    ALTER TABLE dbo.SupportTickets ADD ReviewLockExpiresAt DATETIME2(3) NULL;
 GO

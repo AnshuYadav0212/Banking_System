@@ -36,6 +36,9 @@ public sealed class SupportTicket
 
     public string? ResolutionNote { get; set; }
 
+    /// <summary>While UnderReview: until when only <see cref="AssignedToUserId"/> may act on the ticket (UTC).</summary>
+    public DateTime? ReviewLockExpiresAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }

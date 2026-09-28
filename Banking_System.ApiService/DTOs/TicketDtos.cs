@@ -44,4 +44,6 @@ public sealed record TicketDetail(
     string? ResolutionNote,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
+    bool LockedByAnotherEmployee,
+    DateTime? ReviewLockExpiresAt,
     IReadOnlyList<TicketEventDto> Events);

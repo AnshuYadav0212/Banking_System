@@ -18,7 +18,8 @@ public enum TicketActionStatus
     Success,
     NotFound,
     InvalidTransition,
-    Conflict
+    Conflict,
+    LockedByAnotherEmployee
 }
 
 public sealed record CreateTicketResult(CreateTicketStatus Status, Guid? TicketId = null);
@@ -49,6 +50,12 @@ public sealed class SupportTicketService
         TicketCategoryIds.TransactionDispute,
         TicketCategoryIds.TransactionIssue
     };
+
+    // How long one employee's review lease lasts. While it runs, nobody else can
+    // act on the ticket; once it lapses another employee may take the ticket over
+    // (which locks the first one out). Bounded, so an abandoned review can never
+    // block a ticket for good.
+    private const int ReviewLockSeconds = 60;
 
     private readonly IUserRepository _users;
     private readonly ITransactionRepository _transactions;
@@ -179,12 +186,16 @@ public sealed class SupportTicketService
             ticket.ResolutionNote,
             ticket.CreatedAt,
             ticket.UpdatedAt,
+            isStaff && IsLockedAgainst(ticket, userId),
+            ticket.ReviewLockExpiresAt is { } lockEnd ? DateTime.SpecifyKind(lockEnd, DateTimeKind.Utc) : null,
             events.Select(e => new TicketEventDto(
                 e.TicketEventId, e.ActorUsername, e.ActorRole, e.FromStatus, e.ToStatus, e.Note, e.CreatedAt)).ToList());
     }
 
+    // Also allowed from UnderReview: the current holder renews the lease, or another
+    // employee takes the ticket over once the holder's lease has lapsed.
     public Task<TicketActionResult> StartReviewAsync(Guid employeeUserId, Guid ticketId, CancellationToken cancellationToken) =>
-        TransitionAsync(ticketId, [TicketStatusIds.Open], TicketStatusIds.UnderReview, employeeUserId, note: null, assign: true, resolutionNote: null, cancellationToken);
+        TransitionAsync(ticketId, [TicketStatusIds.Open, TicketStatusIds.UnderReview], TicketStatusIds.UnderReview, employeeUserId, note: null, assign: true, resolutionNote: null, cancellationToken);
 
     // Resolving a ticket closes it directly - there is no separate "Resolved"
     // status to move out of afterwards.
@@ -193,6 +204,13 @@ public sealed class SupportTicketService
 
     public Task<TicketActionResult> RejectAsync(Guid employeeUserId, Guid ticketId, string note, CancellationToken cancellationToken) =>
         TransitionAsync(ticketId, [TicketStatusIds.Open, TicketStatusIds.UnderReview], TicketStatusIds.Rejected, employeeUserId, note, assign: true, resolutionNote: note, cancellationToken);
+
+    private static bool IsLockedAgainst(SupportTicket ticket, Guid userId) =>
+        ticket.StatusId == TicketStatusIds.UnderReview
+        && ticket.AssignedToUserId is { } holder
+        && holder != userId
+        && ticket.ReviewLockExpiresAt is { } expires
+        && DateTime.SpecifyKind(expires, DateTimeKind.Utc) > DateTime.UtcNow;
 
     private async Task<TicketActionResult> TransitionAsync(
         Guid ticketId,
@@ -216,7 +234,13 @@ public sealed class SupportTicketService
             return new TicketActionResult(TicketActionStatus.InvalidTransition);
         }
 
-        var applied = await _tickets.ApplyTransitionAsync(
+        // Same-status "transition" = renewing or taking over a review lease.
+        if (ticket.StatusId == toStatusId)
+        {
+            note ??= ticket.AssignedToUserId == actorUserId ? "Review lease renewed." : "Took over the review.";
+        }
+
+        var outcome = await _tickets.ApplyTransitionAsync(
             ticketId,
             ticket.StatusId,
             toStatusId,
@@ -224,9 +248,15 @@ public sealed class SupportTicketService
             note,
             assign ? actorUserId : null,
             resolutionNote,
+            ReviewLockSeconds,
             cancellationToken);
 
-        if (!applied)
+        if (outcome == TransitionOutcome.LockedByAnotherEmployee)
+        {
+            return new TicketActionResult(TicketActionStatus.LockedByAnotherEmployee);
+        }
+
+        if (outcome != TransitionOutcome.Applied)
         {
             // Someone else changed the ticket's status between the read above and now.
             return new TicketActionResult(TicketActionStatus.Conflict);
