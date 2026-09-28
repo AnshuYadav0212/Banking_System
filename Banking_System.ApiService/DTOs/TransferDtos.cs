@@ -42,7 +42,8 @@ public sealed record TransferResponse(
     string FromAccountNumber,
     string ToAccountNumber,
     string RecipientName,
-    decimal NewBalance);
+    decimal NewBalance,
+    string Status);
 
 public sealed record AccountSummary(
     Guid AccountId,
@@ -58,7 +59,8 @@ public sealed record TransactionSummary(
     string CounterpartyAccountNumber,
     string CounterpartyName,
     decimal Amount,
-    string? Comment);
+    string? Comment,
+    string Status);
 
 /// <summary>The account holder's name for an account number, shown before a transfer is sent.</summary>
 public sealed record RecipientVerification(

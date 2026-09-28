@@ -80,14 +80,14 @@
                                 <span class="tx-icon @IconClass(item.Direction)">@Arrow(item.Direction)</span>
                                 <span class="tx-main">
                                     <span class="tx-title">@Title(item)</span>
-                                    <span class="tx-sub">@AccountNumberMasking.Mask(item.CounterpartyAccountNumber) &middot; @BadgeText(item.Direction)</span>
+                                    <span class="tx-sub">@AccountNumberMasking.Mask(item.CounterpartyAccountNumber) &middot; @StatusLabel(item.Status)</span>
                                 </span>
                                 <span class="tx-amount @IconClass(item.Direction)">@Signed(item)</span>
                             </summary>
                             <div class="tx-detail">
                                 <dl class="row mb-0 small">
                                     <dt class="col-4 text-muted fw-normal">Status</dt>
-                                    <dd class="col-8 mb-1"><span class="badge text-bg-success">Completed</span></dd>
+                                    <dd class="col-8 mb-1"><span class="badge @StatusBadge(item.Status)">@StatusLabel(item.Status)</span></dd>
 
                                     <dt class="col-4 text-muted fw-normal">Date</dt>
                                     <dd class="col-8 mb-1">@Time(item.CreatedAt)</dd>
@@ -205,6 +205,20 @@
     private static string Money(decimal value) =>
         "₹" + value.ToString("N2", CultureInfo.InvariantCulture);
 
+    private static string StatusLabel(string status) => status switch
+    {
+        "Pending" => "Pending approval",
+        _ => status
+    };
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "Pending" => "text-bg-warning",
+        "Processing" => "text-bg-info",
+        "Rejected" => "text-bg-danger",
+        _ => "text-bg-success"
+    };
+
     private static string Title(TransactionSummary item) => item.Direction switch
     {
         "Sent" => $"Sent to {item.CounterpartyName}",
@@ -218,8 +232,6 @@
         "Received" => "↓",
         _ => "⇄"
     };
-
-    private static string BadgeText(string direction) => "Completed";
 
     private static string Signed(TransactionSummary item) => item.Direction switch
     {

@@ -87,6 +87,9 @@ public sealed class TransfersController : ControllerBase
         {
             TransferStatus.Completed =>
                 Created($"/api/transfers/{result.Response!.TransactionId}", result.Response),
+            // 202: accepted and recorded, but waiting for an employee's approval.
+            TransferStatus.PendingApproval =>
+                Accepted($"/api/transfers/{result.Response!.TransactionId}", result.Response),
             TransferStatus.AlreadyProcessed => Ok(result.Response),
             TransferStatus.SenderNotAllowed => Forbid(),
             TransferStatus.AccountNotFound =>

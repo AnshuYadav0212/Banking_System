@@ -8,6 +8,8 @@ namespace Banking_System.ApiService.Services;
 public enum TransferStatus
 {
     Completed,
+    /// <summary>Passed every automatic check but is large enough to need an employee's approval; no money has moved yet.</summary>
+    PendingApproval,
     /// <summary>The same request id was already used for this exact transfer; the original result is returned.</summary>
     AlreadyProcessed,
     /// <summary>The caller's login is inactive, or is not linked to a bank customer.</summary>
@@ -38,6 +40,9 @@ public sealed record TransferResult(
 public sealed class TransferService
 {
     private const int MaxCommentLength = 200;
+
+    /// <summary>A transfer of this amount or more (₹1,00,000) waits for an employee's approval instead of completing at once.</summary>
+    public const decimal ApprovalThreshold = 100_000m;
 
     private readonly IUserRepository _users;
     private readonly IBankCustomerRepository _customers;
@@ -104,7 +109,7 @@ public sealed class TransferService
                 : DisplayName(r.FromFirstName, r.FromLastName);
 
             return new TransactionSummary(
-                r.TransactionId, r.CreatedAt, direction, AccountNumberMasking.Mask(counterparty), counterpartyName, r.Amount, r.Comment);
+                r.TransactionId, r.CreatedAt, direction, AccountNumberMasking.Mask(counterparty), counterpartyName, r.Amount, r.Comment, r.Status);
         }).ToList();
     }
 
@@ -207,19 +212,26 @@ public sealed class TransferService
             return Fail(TransferStatus.InsufficientFunds, "the available balance is lower than the amount");
         }
 
+        // The server alone decides whether approval is needed; the client cannot influence it.
+        var requiresApproval = amount >= ApprovalThreshold;
+
         var outcome = await _transactions.TransferAsync(
-            new TransferCommand(request.RequestId, sender.AccountId, recipient.AccountId, amount, comment, userId),
+            new TransferCommand(request.RequestId, sender.AccountId, recipient.AccountId, amount, comment, userId, requiresApproval),
             cancellationToken);
 
         switch (outcome.Status)
         {
             case TransferOutcomeStatus.Completed:
+            case TransferOutcomeStatus.PendingApproval:
+                var pending = outcome.Status == TransferOutcomeStatus.PendingApproval;
+
                 _logger.LogInformation(
-                    "Transfer {TransactionId}: {Amount} from account ending {From} to account ending {To}.",
-                    outcome.TransactionId, amount, Ending(sender.AccountNumber), Ending(recipient.AccountNumber));
+                    "Transfer {TransactionId} ({State}): {Amount} from account ending {From} to account ending {To}.",
+                    outcome.TransactionId, pending ? "pending approval" : "completed",
+                    amount, Ending(sender.AccountNumber), Ending(recipient.AccountNumber));
 
                 return new TransferResult(
-                    TransferStatus.Completed,
+                    pending ? TransferStatus.PendingApproval : TransferStatus.Completed,
                     new TransferResponse(
                         outcome.TransactionId!.Value,
                         outcome.CreatedAt!.Value,
@@ -227,7 +239,8 @@ public sealed class TransferService
                         AccountNumberMasking.Mask(sender.AccountNumber),
                         AccountNumberMasking.Mask(recipient.AccountNumber),
                         DisplayName(recipient),
-                        outcome.SenderBalanceAfter!.Value));
+                        outcome.SenderBalanceAfter!.Value,
+                        pending ? "Pending" : "Completed"));
 
             case TransferOutcomeStatus.InsufficientFunds:
                 return Fail(TransferStatus.InsufficientFunds, "the balance changed and no longer covers the amount");
@@ -275,7 +288,8 @@ public sealed class TransferService
                 AccountNumberMasking.Mask(existing.FromAccountNumber),
                 AccountNumberMasking.Mask(existing.ToAccountNumber),
                 recipient is null ? string.Empty : DisplayName(recipient),
-                current?.AvailableBalance ?? 0m));
+                current?.AvailableBalance ?? 0m,
+                existing.Status));
     }
 
     private TransferResult Fail(TransferStatus status, string reason)

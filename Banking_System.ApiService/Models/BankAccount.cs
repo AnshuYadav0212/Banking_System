@@ -57,6 +57,9 @@ public sealed class TransactionRecord
 
     public Guid InitiatedByUserId { get; set; }
 
+    /// <summary>Pending, Processing, Completed or Rejected.</summary>
+    public string Status { get; set; } = string.Empty;
+
     public Guid FromAccountId { get; set; }
 
     public Guid ToAccountId { get; set; }

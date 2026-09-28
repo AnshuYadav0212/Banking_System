@@ -11,11 +11,14 @@ public sealed record TransferCommand(
     Guid ToAccountId,
     decimal Amount,
     string? Comment,
-    Guid InitiatedByUserId);
+    Guid InitiatedByUserId,
+    bool RequiresApproval = false);
 
 public enum TransferOutcomeStatus
 {
     Completed,
+    /// <summary>Validated and recorded as Pending; no money has moved yet.</summary>
+    PendingApproval,
     InsufficientFunds,
     AccountInactive,
     AccountNotFound,
@@ -64,6 +67,7 @@ public sealed class TransactionRepository : ITransactionRepository
             t.Amount,
             t.Comment,
             t.InitiatedByUserId,
+            ts.Name AS Status,
             t.FromAccountId,
             t.ToAccountId,
             fa.AccountNumber AS FromAccountNumber,
@@ -75,6 +79,7 @@ public sealed class TransactionRepository : ITransactionRepository
             tc.FirstName AS ToFirstName,
             tc.LastName AS ToLastName
         FROM dbo.Transactions t
+        JOIN dbo.TransactionStatuses ts ON ts.StatusId = t.StatusId
         JOIN dbo.BankAccounts fa ON fa.AccountId = t.FromAccountId
         JOIN dbo.BankAccounts ta ON ta.AccountId = t.ToAccountId
         JOIN dbo.BankCustomers fc ON fc.CustomerId = fa.CustomerId
@@ -137,24 +142,31 @@ public sealed class TransactionRepository : ITransactionRepository
                 return new TransferOutcome(TransferOutcomeStatus.InsufficientFunds);
             }
 
-            var senderBalanceAfter = await connection.ExecuteScalarAsync<decimal>(
-                new CommandDefinition(
-                    """
-                    UPDATE dbo.BankAccounts
-                    SET AvailableBalance = AvailableBalance - @Amount
-                    OUTPUT inserted.AvailableBalance
-                    WHERE AccountId = @AccountId;
-                    """,
-                    new { Amount = command.Amount, AccountId = command.FromAccountId },
-                    transaction,
-                    cancellationToken: cancellationToken));
+            // A transfer that needs approval only records the request: no money moves
+            // until an employee approves it, so the balance stays as it is.
+            var senderBalanceAfter = from.AvailableBalance;
 
-            await connection.ExecuteAsync(
-                new CommandDefinition(
-                    "UPDATE dbo.BankAccounts SET AvailableBalance = AvailableBalance + @Amount WHERE AccountId = @AccountId;",
-                    new { Amount = command.Amount, AccountId = command.ToAccountId },
-                    transaction,
-                    cancellationToken: cancellationToken));
+            if (!command.RequiresApproval)
+            {
+                senderBalanceAfter = await connection.ExecuteScalarAsync<decimal>(
+                    new CommandDefinition(
+                        """
+                        UPDATE dbo.BankAccounts
+                        SET AvailableBalance = AvailableBalance - @Amount
+                        OUTPUT inserted.AvailableBalance
+                        WHERE AccountId = @AccountId;
+                        """,
+                        new { Amount = command.Amount, AccountId = command.FromAccountId },
+                        transaction,
+                        cancellationToken: cancellationToken));
+
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        "UPDATE dbo.BankAccounts SET AvailableBalance = AvailableBalance + @Amount WHERE AccountId = @AccountId;",
+                        new { Amount = command.Amount, AccountId = command.ToAccountId },
+                        transaction,
+                        cancellationToken: cancellationToken));
+            }
 
             var transactionId = Guid.NewGuid();
             var createdAt = DateTime.UtcNow;
@@ -163,9 +175,9 @@ public sealed class TransactionRepository : ITransactionRepository
                 new CommandDefinition(
                     """
                     INSERT INTO dbo.Transactions
-                        (TransactionId, RequestId, FromAccountId, ToAccountId, Amount, Comment, InitiatedByUserId, CreatedAt)
+                        (TransactionId, RequestId, FromAccountId, ToAccountId, Amount, Comment, InitiatedByUserId, StatusId, CreatedAt)
                     VALUES
-                        (@TransactionId, @RequestId, @FromAccountId, @ToAccountId, @Amount, @Comment, @InitiatedByUserId, @CreatedAt);
+                        (@TransactionId, @RequestId, @FromAccountId, @ToAccountId, @Amount, @Comment, @InitiatedByUserId, @StatusId, @CreatedAt);
                     """,
                     new
                     {
@@ -176,6 +188,7 @@ public sealed class TransactionRepository : ITransactionRepository
                         command.Amount,
                         command.Comment,
                         command.InitiatedByUserId,
+                        StatusId = command.RequiresApproval ? TransactionStatusIds.Pending : TransactionStatusIds.Completed,
                         CreatedAt = createdAt
                     },
                     transaction,
@@ -184,7 +197,7 @@ public sealed class TransactionRepository : ITransactionRepository
             await transaction.CommitAsync(cancellationToken);
 
             return new TransferOutcome(
-                TransferOutcomeStatus.Completed,
+                command.RequiresApproval ? TransferOutcomeStatus.PendingApproval : TransferOutcomeStatus.Completed,
                 transactionId,
                 createdAt,
                 senderBalanceAfter);
