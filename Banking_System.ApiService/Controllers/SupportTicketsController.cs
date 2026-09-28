@@ -134,6 +134,7 @@ public sealed class SupportTicketsController : ControllerBase
             TicketActionStatus.NotFound => NotFound(),
             TicketActionStatus.InvalidTransition => Conflict(new { error = "InvalidTransition" }),
             TicketActionStatus.Conflict => Conflict(new { error = "Conflict" }),
+            TicketActionStatus.LockedByAnotherEmployee => Conflict(new { error = "Locked" }),
             _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
     }

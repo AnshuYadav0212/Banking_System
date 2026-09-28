@@ -97,12 +97,23 @@
                     <div class="card-body">
                         <h2 class="h6">Take action</h2>
 
+                        @if (ticket.LockedByAnotherEmployee)
+                        {
+                            <div class="alert alert-warning mb-0" role="alert">
+                                Being reviewed by <strong>@ticket.AssignedToUsername</strong>. It is locked for
+                                other employees until @LockEnd(ticket) - reload the page after that to take it over.
+                            </div>
+                        }
+                        else
+                        {
                         <div class="d-flex flex-wrap gap-2">
-                            @if (ticket.Status == "Open")
+                            @if (ticket.Status is "Open" or "UnderReview")
                             {
                                 <form method="post" action="/tickets/@TicketId/start-review">
                                     <AntiforgeryToken />
-                                    <button class="btn btn-outline-primary" type="submit">Start review</button>
+                                    <button class="btn btn-outline-primary" type="submit">
+                                        @(ticket.Status == "Open" ? "Start review" : "Take over / extend review")
+                                    </button>
                                 </form>
                             }
                         </div>
@@ -127,6 +138,7 @@
                                     </form>
                                 </div>
                             </div>
+                        }
                         }
                     </div>
                 </div>
@@ -191,7 +203,8 @@
             null => null,
             "note-required" => "A note is required for that action.",
             "InvalidTransition" => "That action no longer applies - the ticket's status has since changed.",
-            "Conflict" => "Someone else just updated this ticket. The page below shows the latest state.",
+            "Locked" => "Another employee is reviewing this ticket right now, so it is locked for you. Try again once their review lease (1 minute) has lapsed.",
+            "Conflict" =>"Someone else just updated this ticket. The page below shows the latest state.",
             "unavailable" => "The banking API was unavailable when that action was submitted. Try again.",
             _ => "That action could not be completed."
         };
@@ -234,6 +247,9 @@
     private static string EventTitle(TicketEventDto e) => e.FromStatus is null
         ? "Ticket created"
         : $"{TicketStatuses.Label(e.FromStatus)} → {TicketStatuses.Label(e.ToStatus)}";
+
+    private static string LockEnd(TicketDetail t) =>
+        t.ReviewLockExpiresAt is { } end ? end.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " UTC" : "shortly";
 
     private static string Ref(Guid id) => "TCK-" + id.ToString("N")[..8].ToUpperInvariant();
 

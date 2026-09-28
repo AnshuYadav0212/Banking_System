@@ -21,7 +21,7 @@ public interface ISupportTicketRepository
     Task<IReadOnlyList<TicketEvent>> GetEventsAsync(Guid ticketId, CancellationToken cancellationToken = default);
 
     /// <summary>Moves the ticket to a new status, optionally (re)assigning it, and records the change as an event. All in one transaction.</summary>
-    Task<bool> ApplyTransitionAsync(
+    Task<TransitionOutcome> ApplyTransitionAsync(
         Guid ticketId,
         Guid expectedCurrentStatusId,
         Guid newStatusId,
@@ -29,7 +29,15 @@ public interface ISupportTicketRepository
         string? note,
         Guid? assignedToUserId,
         string? resolutionNote,
+        int reviewLockSeconds,
         CancellationToken cancellationToken = default);
+}
+
+public enum TransitionOutcome
+{
+    Applied,
+    StatusChanged,
+    LockedByAnotherEmployee
 }
 
 public sealed class SupportTicketRepository : ISupportTicketRepository
@@ -51,6 +59,7 @@ public sealed class SupportTicketRepository : ISupportTicketRepository
             t.AssignedToUserId,
             au.Username AS AssignedToUsername,
             t.ResolutionNote,
+            t.ReviewLockExpiresAt,
             t.CreatedAt,
             t.UpdatedAt
         FROM dbo.SupportTickets t
@@ -79,6 +88,13 @@ public sealed class SupportTicketRepository : ISupportTicketRepository
         LEFT JOIN dbo.TicketStatuses fs ON fs.StatusId = e.FromStatusId
         JOIN dbo.TicketStatuses ts ON ts.StatusId = e.ToStatusId
         """;
+
+    private sealed class LockState
+    {
+        public Guid StatusId { get; set; }
+
+        public bool LockedByOther { get; set; }
+    }
 
     private readonly ISqlConnectionFactory _connectionFactory;
 
@@ -179,7 +195,7 @@ public sealed class SupportTicketRepository : ISupportTicketRepository
         return events.ToList();
     }
 
-    public async Task<bool> ApplyTransitionAsync(
+    public async Task<TransitionOutcome> ApplyTransitionAsync(
         Guid ticketId,
         Guid expectedCurrentStatusId,
         Guid newStatusId,
@@ -187,6 +203,7 @@ public sealed class SupportTicketRepository : ISupportTicketRepository
         string? note,
         Guid? assignedToUserId,
         string? resolutionNote,
+        int reviewLockSeconds,
         CancellationToken cancellationToken = default)
     {
         await using var connection = _connectionFactory.CreateConnection();
@@ -195,29 +212,58 @@ public sealed class SupportTicketRepository : ISupportTicketRepository
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         // Only move the ticket if it is still in the status the caller last saw
-        // (WITH (UPDLOCK) so two employees acting at once cannot both "win").
-        var current = await connection.QuerySingleOrDefaultAsync<Guid?>(new CommandDefinition(
-            "SELECT StatusId FROM dbo.SupportTickets WITH (UPDLOCK, ROWLOCK) WHERE TicketId = @TicketId;",
-            new { TicketId = ticketId },
+        // (WITH (UPDLOCK) so two employees acting at once cannot both "win"),
+        // and nobody else holds an unexpired review lease on it. The lease is
+        // judged against the database clock, in the same locked read.
+        var current = await connection.QuerySingleOrDefaultAsync<LockState>(new CommandDefinition(
+            """
+            SELECT StatusId,
+                   CAST(CASE WHEN StatusId = @UnderReview
+                              AND AssignedToUserId IS NOT NULL
+                              AND AssignedToUserId <> @ActorUserId
+                              AND ReviewLockExpiresAt > SYSUTCDATETIME()
+                             THEN 1 ELSE 0 END AS bit) AS LockedByOther
+            FROM dbo.SupportTickets WITH (UPDLOCK, ROWLOCK)
+            WHERE TicketId = @TicketId;
+            """,
+            new { TicketId = ticketId, ActorUserId = actorUserId, UnderReview = TicketStatusIds.UnderReview },
             transaction,
             cancellationToken: cancellationToken));
 
-        if (current is null || current != expectedCurrentStatusId)
+        if (current is null || current.StatusId != expectedCurrentStatusId)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return false;
+            return TransitionOutcome.StatusChanged;
         }
 
+        if (current.LockedByOther)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return TransitionOutcome.LockedByAnotherEmployee;
+        }
+
+        // Entering UnderReview (re)takes the lease; any other status frees it.
         await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE dbo.SupportTickets
             SET StatusId = @NewStatusId,
                 AssignedToUserId = COALESCE(@AssignedToUserId, AssignedToUserId),
                 ResolutionNote = COALESCE(@ResolutionNote, ResolutionNote),
+                ReviewLockExpiresAt = CASE WHEN @NewStatusId = @UnderReview
+                                           THEN DATEADD(SECOND, @LockSeconds, SYSUTCDATETIME())
+                                           ELSE NULL END,
                 UpdatedAt = SYSUTCDATETIME()
             WHERE TicketId = @TicketId;
             """,
-            new { TicketId = ticketId, NewStatusId = newStatusId, AssignedToUserId = assignedToUserId, ResolutionNote = resolutionNote },
+            new
+            {
+                TicketId = ticketId,
+                NewStatusId = newStatusId,
+                AssignedToUserId = assignedToUserId,
+                ResolutionNote = resolutionNote,
+                UnderReview = TicketStatusIds.UnderReview,
+                LockSeconds = reviewLockSeconds
+            },
             transaction,
             cancellationToken: cancellationToken));
 
@@ -240,6 +286,6 @@ public sealed class SupportTicketRepository : ISupportTicketRepository
             cancellationToken: cancellationToken));
 
         await transaction.CommitAsync(cancellationToken);
-        return true;
+        return TransitionOutcome.Applied;
     }
 }
