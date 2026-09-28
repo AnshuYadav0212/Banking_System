@@ -3,6 +3,7 @@ using Banking_System.Web.Services.Transactions;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Banking_System.Web.Authentication;
 
@@ -25,15 +26,15 @@ public static class TransactionReviewEndpoints
     }
 
     private static Task<IResult> StartReviewAsync(
-        Guid transactionId, string? returnUrl, TransactionReviewApiClient reviews, HttpContext httpContext, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
+        Guid transactionId, [FromForm] string? returnUrl, TransactionReviewApiClient reviews, HttpContext httpContext, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
         RunAsync(returnUrl, httpContext, antiforgery, (token, ct) => reviews.StartReviewAsync(token, transactionId, ct), cancellationToken);
 
     private static Task<IResult> ApproveAsync(
-        Guid transactionId, string? returnUrl, TransactionReviewApiClient reviews, HttpContext httpContext, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
+        Guid transactionId, [FromForm] string? returnUrl, TransactionReviewApiClient reviews, HttpContext httpContext, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
         RunAsync(returnUrl, httpContext, antiforgery, (token, ct) => reviews.ApproveAsync(token, transactionId, ct), cancellationToken);
 
     private static Task<IResult> RejectAsync(
-        Guid transactionId, string? returnUrl, TransactionReviewApiClient reviews, HttpContext httpContext, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
+        Guid transactionId, [FromForm] string? returnUrl, TransactionReviewApiClient reviews, HttpContext httpContext, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
         RunAsync(returnUrl, httpContext, antiforgery, (token, ct) => reviews.RejectAsync(token, transactionId, ct), cancellationToken);
 
     private static async Task<IResult> RunAsync(
