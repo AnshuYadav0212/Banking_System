@@ -1,0 +1,94 @@
+.account-page-header {
+    margin-bottom: 1.75rem;
+}
+
+.account-overview h2 {
+    margin: 0 0 1rem;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--heading);
+}
+
+.acct-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 16rem));
+    gap: 1.1rem;
+    margin-bottom: 1.75rem;
+}
+
+.acct-card {
+    padding: 1.35rem 1.5rem;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.acct-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.acct-card-inactive {
+    opacity: .7;
+}
+
+.acct-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.acct-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius);
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.acct-card-number {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--heading);
+}
+
+.acct-card-balance-label {
+    margin-top: .9rem;
+    font-size: .78rem;
+    color: var(--text-muted);
+}
+
+.acct-card-balance {
+    margin-top: .15rem;
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.account-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+}
+
+.account-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+}
+
+@media (max-width: 480.98px) {
+    .acct-grid {
+        grid-template-columns: 1fr;
+    }
+}
