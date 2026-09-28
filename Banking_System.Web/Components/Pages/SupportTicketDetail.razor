@@ -93,6 +93,9 @@
            redirects back here, which is what makes the new status show up. *@
         <AuthorizeView Roles="Employee,Admin">
             <Authorized>
+                @* Closed and Rejected are final: no action panel at all. *@
+                @if (ticket.Status is "Open" or "UnderReview")
+                {
                 <div class="card mb-3 review-card">
                     <div class="card-body">
                         <h2 class="h6">Take action</h2>
@@ -142,6 +145,7 @@
                         }
                     </div>
                 </div>
+                }
             </Authorized>
         </AuthorizeView>
 
